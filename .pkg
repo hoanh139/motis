@@ -106,3 +106,7 @@
   url=git@github.com:motis-project/valhalla.git
   branch=master
   commit=0e7c45e9538fab198252b8a980a3d8597522ee6c
+[cppgraphqlgen]
+  url=git@github.com:hoanh139/cppgraphqlgen.git
+  branch=main
+  commit=ad718b915676f3378bc4a9f273dfc05927d78a04
