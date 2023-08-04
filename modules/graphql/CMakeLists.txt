@@ -3,12 +3,8 @@ project(motis)
 
 add_custom_command(
     OUTPUT
-        ${CMAKE_CURRENT_BINARY_DIR}/otp/CharacterObject.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/otp/DroidObject.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/otp/HumanObject.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/otp/QueryObject.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/otp/ReviewObject.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/otp/MutationObject.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/otp/TripObject.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/otp/QueryTypeObject.cpp
         ${CMAKE_CURRENT_BINARY_DIR}/otp/otpSchema.cpp
     COMMAND
         ${CMAKE_CROSSCOMPILING_EMULATOR} $<TARGET_FILE:cppgraphqlgen::schemagen>
@@ -20,16 +16,12 @@ add_custom_command(
 )
 
 add_library(motis-otp-graphql
-    ${CMAKE_CURRENT_BINARY_DIR}/otp/CharacterObject.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/otp/DroidObject.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/otp/HumanObject.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/otp/QueryObject.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/otp/ReviewObject.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/otp/MutationObject.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/otp/TripObject.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/otp/QueryTypeObject.cpp
     ${CMAKE_CURRENT_BINARY_DIR}/otp/otpSchema.cpp
 )
 target_link_libraries(motis-otp-graphql cppgraphqlgen::graphqlservice)
-target_include_directories(motis-otp-graphql PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/otp/include)
+target_include_directories(motis-otp-graphql PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
 file(GLOB_RECURSE motis-graphql-files src/*.cc)
 add_library(motis-graphql STATIC ${motis-graphql-files})

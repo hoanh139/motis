@@ -1,47 +1,22 @@
-# This schema is what https://graphql.org/learn/ uses.
-# It is extracted from https://github.com/graphql/graphql-js/blob/main/src/__tests__/starWarsSchema.ts.
-
-enum Episode { NEW_HOPE, EMPIRE, JEDI }
-
-interface Character {
-  id: ID!
-  name: String
-  friends: [Character]
-  appearsIn: [Episode]
+schema {
+  query: QueryType
 }
 
-type Human implements Character {
-  id: ID!
-  name: String
-  friends: [Character]
-  appearsIn: [Episode]
-  homePlanet: String
+scalar DateTime
+
+input Location {
+  latitude: Float!
+  longitude: Float!
 }
 
-type Droid implements Character {
-  id: ID!
-  name: String
-  friends: [Character]
-  appearsIn: [Episode]
-  primaryFunction: String
+type Trip {
+  departure: DateTime
+  arrival: DateTime
 }
 
-type Query {
-  hero(episode: Episode): Character
-  human(id: ID!): Human
-  droid(id: ID!): Droid
-}
-
-input ReviewInput {
-  stars: Int!
-  commentary: String
-}
-
-type Review {
-  stars: Int!
-  commentary: String
-}
-
-type Mutation {
-  createReview(ep: Episode! review: ReviewInput!): Review!
+type QueryType {
+  trip(
+    from: Location!
+    to: Location!
+  ) : Trip!
 }
