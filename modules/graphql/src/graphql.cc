@@ -1,5 +1,6 @@
 #include "motis/graphql/graphql.h"
 
+#include <chrono>
 #include "graphqlservice/JSONResponse.h"
 #include "otp/QueryTypeObject.h"
 #include "otp/TripObject.h"
@@ -8,8 +9,33 @@
 namespace mm = motis::module;
 namespace fbb = flatbuffers;
 namespace gql = graphql;
+namespace otp = gql::otp;
+namespace otpo = otp::object;
+using namespace std::string_view_literals;
 
 namespace motis::graphql {
+
+struct Trip {
+  gql::response::ScalarType getDeparture() const noexcept {
+    return gql::response::ScalarType{"a"};
+  }
+  gql::response::ScalarType getArrival() const noexcept {
+    return gql::response::ScalarType{"b"};
+  }
+};
+
+struct Query {
+  std::shared_ptr<otpo::Trip> getTrip(otp::Location const& from,
+                                      otp::Location const& to) const noexcept {
+    (void)from;
+    (void)to;
+
+    std::shared_ptr<otpo::Trip> result =
+        std::make_shared<otpo::Trip>(std::make_shared<Trip>());
+
+    return {};
+  }  // namespace motis::graphql
+};
 
 graphql::graphql() : module("GraphQL", "graphql") {}
 
@@ -19,9 +45,21 @@ void graphql::init(motis::module::registry& reg) {
       [](mm::msg_ptr const& msg) {
         auto const req = motis_content(HTTPRequest, msg);
 
-        auto const query = gql::peg::parseString(req->content()->str());
-        gql::otp::Operations{std::make_shared<gql::otp::object::QueryType>(
-            []() { return std::make_shared<gql::otp::object::Trip>(); })};
+        std::shared_ptr<gql::service::Request> service =
+            std::make_shared<otp::Operations>(std::make_shared<Query>());
+
+        auto payload = gql::response::parseJSON(req->content()->str());
+        auto variablesItr = payload.find("variables"sv);
+        auto variables = gql::response::Value{gql::response::Type::Map};
+        for (auto [k, v] : variablesItr->second) {
+          variables.emplace_back(std::move(k), std::move(v));
+        }
+        const auto queryItr = payload.find("query"sv);
+
+        auto query = gql::peg::parseString(
+            queryItr->second.get<gql::response::StringType>());
+        auto const response = gql::response::toJSON(
+            service->resolve({.query = query, .operationName = ""sv}).get());
 
         mm::message_creator mc;
         mc.create_and_finish(
@@ -29,7 +67,7 @@ void graphql::init(motis::module::registry& reg) {
             CreateHTTPResponse(
                 mc, HTTPStatus_OK,
                 mc.CreateVector(std::vector<fbb::Offset<HTTPHeader>>{}),
-                mc.CreateString(req->content()->str()))
+                mc.CreateString(response))
                 .Union());
         return make_msg(mc);
       },
