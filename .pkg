@@ -109,4 +109,4 @@
 [cppgraphqlgen]
   url=git@github.com:hoanh139/cppgraphqlgen.git
   branch=main
-  commit=ad718b915676f3378bc4a9f273dfc05927d78a04
+  commit=fc1798762825447c2a9e99b15638f92e30a4fc4d
