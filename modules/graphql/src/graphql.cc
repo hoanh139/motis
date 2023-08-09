@@ -50,14 +50,20 @@ void graphql::init(motis::module::registry& reg) {
 
         auto payload = gql::response::parseJSON(req->content()->str());
         auto variablesItr = payload.find("variables"sv);
+        if (variablesItr == payload.end() ||
+            variablesItr->second.type() != gql::response::Type::Map) {
+          throw std::runtime_error{"variables missing"};
+        }
         auto variables = gql::response::Value{gql::response::Type::Map};
         for (auto [k, v] : variablesItr->second) {
           variables.emplace_back(std::move(k), std::move(v));
         }
 
-        std::cerr
-            << payload.find("query"sv)->second.get<gql::response::StringType>();
         auto queryItr = payload.find("query"sv);
+        if (queryItr == payload.end() ||
+            queryItr->second.type() != gql::response::Type::String) {
+          throw std::runtime_error("query missing");
+        }
 
         auto query = gql::peg::parseString(
             queryItr->second.get<gql::response::StringType>());
