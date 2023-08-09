@@ -5,8 +5,8 @@ schema {
 scalar DateTime
 
 input Location {
-  latitude: Float!
-  longitude: Float!
+  lat: Float!
+  lon: Float!
 }
 
 type Trip {

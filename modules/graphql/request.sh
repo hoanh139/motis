@@ -1,13 +1,15 @@
 curl -X POST -d '{
-  "query": "Trip\n{ departure, arrival\n}",
+  "query": "query GetTrip ($from: Location!, $to: Location!) {\n  trip(from: $from, to: $to) {\n      departure,\n      arrival\n    }\n  }",
+  "operationName": "GetTrip",
   "variables": {
     "from": {
-      "latitude": 0.0,
-      "longitude": 0.0
+      "lat": 1,
+      "lon": 1
     },
     "to": {
-      "latitude": 0.0,
-      "longitude": 0.0
+      "lat": 1,
+      "lon": 1
     }
   }
-}' http://localhost:8080/graphql
+}\n
+\n' http://localhost:8080/graphql

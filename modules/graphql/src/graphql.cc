@@ -33,7 +33,7 @@ struct Query {
     std::shared_ptr<otpo::Trip> result =
         std::make_shared<otpo::Trip>(std::make_shared<Trip>());
 
-    return {};
+    return result;
   }  // namespace motis::graphql
 };
 
@@ -54,12 +54,19 @@ void graphql::init(motis::module::registry& reg) {
         for (auto [k, v] : variablesItr->second) {
           variables.emplace_back(std::move(k), std::move(v));
         }
-        const auto queryItr = payload.find("query"sv);
+
+        std::cerr
+            << payload.find("query"sv)->second.get<gql::response::StringType>();
+        auto queryItr = payload.find("query"sv);
 
         auto query = gql::peg::parseString(
             queryItr->second.get<gql::response::StringType>());
         auto const response = gql::response::toJSON(
-            service->resolve({.query = query, .operationName = ""sv}).get());
+            service
+                ->resolve({.query = query,
+                           .operationName = "GetTrip"sv,
+                           .variables = std::move(variables)})
+                .get());
 
         mm::message_creator mc;
         mc.create_and_finish(
