@@ -1,6 +1,6 @@
 curl -X POST -d '{
-  "query": "query GetTrip ($from: Location!, $to: Location!) {\n  trip(from: $from, to: $to) {\n      departure,\n      arrival\n    }\n  }",
-  "operationName": "GetTrip",
+  "query": "query GetPlan($from: InputCoordinates!, $to: InputCoordinates!) {\n  plan(from: $from, to: $to) {\n     date\n    }\n  }",
+  "operationName": "GetPlan",
   "variables": {
     "from": {
       "lat": 1,

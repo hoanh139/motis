@@ -1,9 +1,12 @@
 #include "motis/graphql/graphql.h"
 
-#include <chrono>
 #include "graphqlservice/JSONResponse.h"
+
+#include "otp/NodeObject.h"
+#include "otp/PlaceObject.h"
 #include "otp/PlanObject.h"
 #include "otp/QueryTypeObject.h"
+#include "otp/debugOutputObject.h"
 #include "otp/otpSchema.h"
 
 namespace mm = motis::module;
@@ -21,136 +24,152 @@ using Boolean = gql::response::BooleanType;
 using Long = gql::response::IntType;
 using Int = gql::response::IntType;
 
-struct debugOutput{
-  gql::response::ScalarType gettotalTime() const noexcept {
-    return gql::response::ScalarType{1};
+struct node {
+  gql::service::TypeNames getTypeNames() const noexcept;
+  gql::service::ResolverMap getResolvers() const noexcept;
+};
+
+struct debug_output {
+  gql::response::Value getTotalTime() const noexcept {
+    return gql::response::Value{1};
   }
-  gql::response::ScalarType getpathCalculationTime() const noexcept {
-    return gql::response::ScalarType{1};
+  gql::response::Value getPathCalculationTime() const noexcept {
+    return gql::response::Value{1};
   }
-  gql::response::ScalarType getprecalculationTime() const noexcept {
-    return gql::response::ScalarType{1};
+  gql::response::Value getPrecalculationTime() const noexcept {
+    return gql::response::Value{1};
   }
-  gql::response::ScalarType getrenderingTime() const noexcept {
-    return gql::response::ScalarType{1};
+  gql::response::Value getRenderingTime() const noexcept {
+    return gql::response::Value{1};
   }
-  bool gettimedOut() const noexcept {
-    return true;
+  bool getTimedOut() const noexcept { return true; }
+};
+
+struct place {
+  gql::response::StringType getName() const noexcept { return ""; }
+  otp::VertexType getVertextype() const noexcept {
+    return otp::VertexType::NORMAL;
+  }
+  double getLat() const noexcept { return 0.0; }
+  double getLon() const noexcept { return 0.0; }
+  gql::response::Value getArrival() const noexcept {
+    return gql::response::Value{"a"};
+  }
+  gql::response::Value getDeparture() const noexcept {
+    return gql::response::Value{"b"};
   }
 };
 
-struct Place {
-  explicit Place(long lat, long lon, long arrival, long departure)
-      :_lat(lat), _lon(lon), _arrival(arrival), _departure(departure){}
-  /*
-  gql::response::ScalarType getLat() const noexcept {
-return gql::response::ScalarType{"a"};
-}
-gql::response::ScalarType getLon() const noexcept {
-return gql::response::ScalarType{"b"};
-}
-gql::response::ScalarType getArrival() const noexcept {
-return gql::response::ScalarType{"a"};
-}
-gql::response::ScalarType getDeparture() const noexcept {
-return gql::response::ScalarType{"b"};
-}
-   */
-  long getLat() const noexcept;
-  long getLon() const noexcept;
-  long getArrival() const noexcept;
-  long getDeparture() const noexcept;
-
-  const long _lat;
-  const long _lon;
-  const long _arrival;
-  const long _departure;
-};
-
-struct Plan {
-  explicit Plan(
-      gql::response::StringType const& date,
-      gql::response::StringType const& time, otp::InputCoordinates from,
-      otp::InputCoordinates to, String fromPlace, String toPlace,
-      Boolean wheelchair, int numItineraries, Long searchWindow,
-      String pageCursor, Float bikeReluctance, Float bikeWalkingReluctance,
-      Float carReluctance, Float walkReluctance, Float waitReluctance,
-      Float walkSpeed, Float bikeSpeed, Int bikeSwitchTime, Int bikeSwitchCost,
-      otp::OptimizeType optimize, otp::InputTriangle triangle, Boolean arriveBy,
-      otp::InputPreferred preferred, otp::InputUnpreferred unpreferred,
-      Int walkBoardCost, Int bikeBoardCost, otp::InputBanned banned,
-      Int transferPenalty, std::vector<otp::TransportMode> transportModes,
-      otp::InputModeWeight modeWeight, Boolean debugItineraryFilter,
-      Boolean allowKeepingRentedBicycleAtDestination,
-      Int keepingRentedBicycleAtDestinationCost, Int boardSlack,
-      Int alightSlack, Int minTransferTime, Int nonpreferredTransferPenalty,
-      String startTransitStopId, Boolean omitCanceled,
-      Boolean ignoreRealtimeUpdates, String locale,
-      std::vector<String> allowedTicketTypes,
-      std::vector<String> allowedVehicleRentalNetworks,
-      std::vector<String> bannedVehicleRentalNetworks, Float walkSafetyFactor,
-      otp::VehicleParkingInput parking, Float maxWalkDistance,
-      Float walkOnStreetReluctance, Float waitAtBeginningFactor, Boolean batch,
-      Boolean allowBikeRental, Long claimInitialWait,
-      Boolean reverseOptimizeOnTheFly, Boolean disableRemainingWeightHeuristic,
-      Boolean compactLegsByReversedSearch,
-      std::vector<String> allowedBikeRentalNetworks, Int maxPreTransitTime,
-      Float carParkCarLegWeight, Int heuristicStepsPerMainStep,
-      Float itineraryFiltering, String startTransitTripId)
-      : _from(std::make_shared<Place>(from.lat,from.lon,1.0,1.0)),
-        _to(std::make_shared<Place>(to.lat,to.lon,1.0,1.0),
-            debugOutput(std::make_shared<otpo::debugOutput>())){}
-
-  gql::response::Value getDate() const noexcept;
-  std::shared_ptr<Place> getFrom() const noexcept{
-    return _from;
+struct plan {
+  gql::response::Value getDate() const noexcept {
+    return gql::response::Value{"a"};
   }
-
-  std::shared_ptr<Place> _from;
-  std::shared_ptr<Place> _to;
-  std::vector<std::shared_ptr<otpo::Itinerary>> itineraries;
-  std::vector<std::shared_ptr<gql::response::Value>> messageEnums;
-  std::vector<std::shared_ptr<gql::response::Value>> messageStrings;
-  std::vector<std::shared_ptr<otpo::RoutingError>> routingErrors;
-  std::shared_ptr<otpo::debugOutput> debugOutput;
+  std::shared_ptr<otpo::Place> getFrom() const noexcept {
+    return std::make_shared<otpo::Place>(std::make_shared<place>());
+  }
+  std::shared_ptr<otpo::Place> getTo() const noexcept {
+    return std::make_shared<otpo::Place>(std::make_shared<place>());
+  }
+  //  std::vector<std::shared_ptr<otpo::Itinerary>> getItineraries() {
+  //    return std::vector<std::shared_ptr<otpo::Itinerary>>();
+  //  }
+  //  std::vector<std::shared_ptr<gql::response::StringType>> getMessageEnums()
+  //  {
+  //    return std::vector<std::shared_ptr<gql::response::StringType>>();
+  //  }
+  //  std::vector<std::shared_ptr<gql::response::StringType>>
+  //  getMessageStrings() {
+  //    return std::vector<std::shared_ptr<gql::response::StringType>>();
+  //  }
+  //  std::vector<std::shared_ptr<gql::response::StringType>> getRoutingErrors()
+  //  {
+  //    return std::vector<std::shared_ptr<gql::response::StringType>>();
+  //  }
+  //  std::shared_ptr<otpo::debugOutput> getDebugOutput() {
+  //    return std::make_shared<otpo::debugOutput>(
+  //        std::make_shared<debug_output>());
+  //  }
 };
 
 struct Query {
-  std::shared_ptr<otpo::Plan> plan(
-      gql::response::StringType const& date,
-      gql::response::StringType const& time, otp::InputCoordinates from,
-      otp::InputCoordinates to, String fromPlace, String toPlace,
-      Boolean wheelchair, int numItineraries, Long searchWindow,
-      String pageCursor, Float bikeReluctance, Float bikeWalkingReluctance,
-      Float carReluctance, Float walkReluctance, Float waitReluctance,
-      Float walkSpeed, Float bikeSpeed, Int bikeSwitchTime, Int bikeSwitchCost,
-      otp::OptimizeType optimize, otp::InputTriangle triangle, Boolean arriveBy,
-      otp::InputPreferred preferred, otp::InputUnpreferred unpreferred,
-      Int walkBoardCost, Int bikeBoardCost, otp::InputBanned banned,
-      Int transferPenalty, std::vector<otp::TransportMode> transportModes,
-      otp::InputModeWeight modeWeight, Boolean debugItineraryFilter,
-      Boolean allowKeepingRentedBicycleAtDestination,
-      Int keepingRentedBicycleAtDestinationCost, Int boardSlack,
-      Int alightSlack, Int minTransferTime, Int nonpreferredTransferPenalty,
-      String startTransitStopId, Boolean omitCanceled,
-      Boolean ignoreRealtimeUpdates, String locale,
-      std::vector<String> allowedTicketTypes,
-      std::vector<String> allowedVehicleRentalNetworks,
-      std::vector<String> bannedVehicleRentalNetworks, Float walkSafetyFactor,
-      otp::VehicleParkingInput parking, Float maxWalkDistance,
-      Float walkOnStreetReluctance, Float waitAtBeginningFactor, Boolean batch,
-      Boolean allowBikeRental, Long claimInitialWait,
-      Boolean reverseOptimizeOnTheFly, Boolean disableRemainingWeightHeuristic,
-      Boolean compactLegsByReversedSearch,
-      std::vector<String> allowedBikeRentalNetworks, Int maxPreTransitTime,
-      Float carParkCarLegWeight, Int heuristicStepsPerMainStep,
-      Float itineraryFiltering, String startTransitTripId) const noexcept {
-
-    std::shared_ptr<otpo::Plan> result =
-        std::make_shared<otpo::Plan>(std::make_shared<Plan>());
-
-    return result;
-  }  // namespace motis::graphql
+  std::shared_ptr<otpo::Plan> getPlan(
+      std::optional<std::string>&& /*  dateArg */,
+      std::optional<std::string>&& /*  timeArg */,
+      std::unique_ptr<otp::InputCoordinates>&& /*  fromArg */,
+      std::unique_ptr<otp::InputCoordinates>&& /*  toArg */,
+      std::optional<std::string>&& /*  fromPlaceArg */,
+      std::optional<std::string>&& /*  toPlaceArg */,
+      std::optional<bool>&& /* wheelchairArg */,
+      std::optional<int>&& /* numItinerariesArg */,
+      std::optional<gql::response::Value>&& /* searchWindowArg */,
+      std::optional<std::string>&& /* pageCursorArg */,
+      std::optional<double>&& /* bikeReluctanceArg */,
+      std::optional<double>&& /* bikeWalkingReluctanceArg */,
+      std::optional<double>&& /* carReluctanceArg */,
+      std::optional<double>&& /* walkReluctanceArg */,
+      std::optional<double>&& /* waitReluctanceArg */,
+      std::optional<double>&& /* walkSpeedArg */,
+      std::optional<double>&& /* bikeSpeedArg */,
+      std::optional<int>&& /* bikeSwitchTimeArg */,
+      std::optional<int>&& /* bikeSwitchCostArg */,
+      std::optional<otp::OptimizeType>&& /* optimizeArg */,
+      std::unique_ptr<otp::InputTriangle>&& /* triangleArg */,
+      std::optional<bool>&& /* arriveByArg */,
+      std::unique_ptr<otp::InputPreferred>&& /* preferredArg */,
+      std::unique_ptr<otp::InputUnpreferred>&& /* unpreferredArg */,
+      std::optional<int>&& /* walkBoardCostArg */,
+      std::optional<int>&& /* bikeBoardCostArg */,
+      std::unique_ptr<otp::InputBanned>&& /* bannedArg */,
+      std::optional<int>&& /* transferPenaltyArg */,
+      std::optional<std::vector<std::unique_ptr<otp::TransportMode>>>&& /*
+          transportModesArg */
+      ,
+      std::unique_ptr<otp::InputModeWeight>&& /* modeWeightArg */,
+      std::optional<bool>&& /* debugItineraryFilterArg */,
+      std::optional<bool>&& /* allowKeepingRentedBicycleAtDestinationArg */,
+      std::optional<int>&& /* keepingRentedBicycleAtDestinationCostArg */,
+      std::optional<int>&& /* boardSlackArg */,
+      std::optional<int>&& /* alightSlackArg */,
+      std::optional<int>&& /* minTransferTimeArg */,
+      std::optional<int>&& /* nonpreferredTransferPenaltyArg */,
+      std::optional<int>&& /* maxTransfersArg */,
+      std::optional<std::string>&& /* startTransitStopIdArg */,
+      std::optional<bool>&& /* omitCanceledArg */,
+      std::optional<bool>&& /* ignoreRealtimeUpdatesArg */,
+      std::optional<std::string>&& /* localeArg */,
+      std::optional<std::vector<std::optional<std::string>>>&& /*
+          allowedTicketTypesArg */
+      ,
+      std::optional<std::vector<std::optional<std::string>>>&& /*
+          allowedVehicleRentalNetworksArg */
+      ,
+      std::optional<std::vector<std::optional<std::string>>>&& /*
+          bannedVehicleRentalNetworksArg */
+      ,
+      std::optional<double>&& /* walkSafetyFactorArg */,
+      std::unique_ptr<otp::VehicleParkingInput>&& /* parkingArg */,
+      std::optional<double>&& /* maxWalkDistanceArg */,
+      std::optional<double>&& /* walkOnStreetReluctanceArg */,
+      std::optional<double>&& /* waitAtBeginningFactorArg */,
+      std::optional<bool>&& /* batchArg */,
+      std::optional<bool>&& /* allowBikeRentalArg */,
+      std::optional<gql::response::Value>&& /* claimInitialWaitArg */,
+      std::optional<bool>&& /* reverseOptimizeOnTheFlyArg */,
+      std::optional<bool>&& /* disableRemainingWeightHeuristicArg */,
+      std::optional<bool>&& /* compactLegsByReversedSearchArg */,
+      std::optional<std::vector<std::optional<std::string>>>&& /*
+          allowedBikeRentalNetworksArg */
+      ,
+      std::optional<int>&& /* maxPreTransitTimeArg */,
+      std::optional<double>&& /* carParkCarLegWeightArg */,
+      std::optional<int>&& /* heuristicStepsPerMainStepArg */,
+      std::optional<double>&& /* itineraryFilteringArg */,
+      std::optional<std::vector<std::unique_ptr<otp::InputCoordinates>>>&& /*
+          intermediatePlacesArg */
+      ,
+      std::optional<std::string>&& /* startTransitTripIdArg */) const noexcept {
+    return std::make_shared<otpo::Plan>(std::make_shared<plan>());
+  }
 };
 
 graphql::graphql() : module("GraphQL", "graphql") {}
@@ -161,33 +180,8 @@ void graphql::init(motis::module::registry& reg) {
       [](mm::msg_ptr const& msg) {
         auto const req = motis_content(HTTPRequest, msg);
 
-        std::shared_ptr<otpo::debugOutput> tryyy =
-            std::make_shared<otpo::debugOutput>(std::make_shared<debugOutput>());
-
         std::shared_ptr<gql::service::Request> service =
             std::make_shared<otp::Operations>(std::make_shared<Query>());
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
         auto payload = gql::response::parseJSON(req->content()->str());
         auto variablesItr = payload.find("variables"sv);
@@ -211,7 +205,7 @@ void graphql::init(motis::module::registry& reg) {
         auto const response = gql::response::toJSON(
             service
                 ->resolve({.query = query,
-                           .operationName = "GetTrip"sv,
+                           .operationName = "GetPlan"sv,
                            .variables = std::move(variables)})
                 .get());
 
@@ -221,7 +215,7 @@ void graphql::init(motis::module::registry& reg) {
             CreateHTTPResponse(
                 mc, HTTPStatus_OK,
                 mc.CreateVector(std::vector<fbb::Offset<HTTPHeader>>{}),
-                mc.CreateString("response"))
+                mc.CreateString(response))
                 .Union());
         return make_msg(mc);
       },

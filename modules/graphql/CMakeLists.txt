@@ -78,6 +78,7 @@ add_custom_command(
             ${CMAKE_CURRENT_SOURCE_DIR}/schema.otp.graphql
             --source-dir ${CMAKE_CURRENT_BINARY_DIR}/otp
             --header-dir ${CMAKE_CURRENT_BINARY_DIR}/otp
+            --stubs
             otp otp
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/schema.otp.graphql
 )
