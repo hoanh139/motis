@@ -15,6 +15,7 @@ namespace gql = graphql;
 namespace otp = gql::otp;
 namespace otpo = otp::object;
 using namespace std::string_view_literals;
+using namespace motis::routing;
 
 namespace motis::graphql {
 
@@ -180,13 +181,30 @@ struct plan {
     mc.create_and_finish(
         MsgContent_IntermodalRoutingRequest,
         intermodal::CreateIntermodalRoutingRequest(
-            mc, intermodal::IntermodalStart_IntermodalPretripStart
-
-            )
+            mc, intermodal::IntermodalStart_IntermodalPretripStart,
+            //            flatbuffers::Offset<void>{intermodal::CreateIntermodalPretripStart(
+            //                mc, new motis::Position(1.0, 2.0), new
+            //                motis::Interval(1, 3), 0, false, false)},
+            flatbuffers::Offset<void>(1),
+            mc.CreateVector(std::vector<flatbuffers::Offset<
+                                motis::intermodal::ModeWrapper>>{
+                intermodal::CreateModeWrapper(mc, intermodal::Mode::Mode_Foot,
+                                              flatbuffers::Offset<void>())}),
+            intermodal::IntermodalDestination::
+                IntermodalDestination_InputPosition,
+            flatbuffers::Offset<void>(2))
             .Union(),
         "/intermodal");
+
     auto const response = motis_call(make_msg(mc));
+    response->val();  // msg_ptr
+    auto const res_value = response->val();
+    auto const intermodal_res = motis_content(RoutingResponse, res_value);
+    for (auto const c : *intermodal_res->connections()) {
+      auto tryyy = c;
+    }
   }
+
   gql::response::Value getDate() const noexcept {
     return gql::response::Value{"a"};
   }
