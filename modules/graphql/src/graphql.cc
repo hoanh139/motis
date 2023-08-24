@@ -182,17 +182,21 @@ struct plan {
         MsgContent_IntermodalRoutingRequest,
         intermodal::CreateIntermodalRoutingRequest(
             mc, intermodal::IntermodalStart_IntermodalPretripStart,
-            //            flatbuffers::Offset<void>{intermodal::CreateIntermodalPretripStart(
-            //                mc, new motis::Position(1.0, 2.0), new
-            //                motis::Interval(1, 3), 0, false, false)},
-            flatbuffers::Offset<void>(1),
+            intermodal::CreateIntermodalPretripStart(
+                mc, new motis::Position(48.608170919390595, 8.845710754394533), new
+                motis::Interval(1586078940, 1586086140), 0, false, false).Union(),
             mc.CreateVector(std::vector<flatbuffers::Offset<
                                 motis::intermodal::ModeWrapper>>{
-                intermodal::CreateModeWrapper(mc, intermodal::Mode::Mode_Foot,
-                                              flatbuffers::Offset<void>())}),
-            intermodal::IntermodalDestination::
-                IntermodalDestination_InputPosition,
-            flatbuffers::Offset<void>(2))
+                intermodal::CreateModeWrapper(mc, intermodal::Mode::Mode_FootPPR,
+                                              intermodal::CreateFootPPR(mc,
+                                                                        motis::ppr::CreateSearchOptions(mc,
+                                                                                                        mc.CreateString("default"),
+                                                                                                        900)
+                                                                        ).Union()
+                                              )
+            }),
+            intermodal::IntermodalDestination::IntermodalDestination_InputPosition,
+            intermodal::CreateInputPosition(mc,48.58932584966975,8.893089294433596).Union())
             .Union(),
         "/intermodal");
 
