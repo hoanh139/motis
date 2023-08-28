@@ -163,52 +163,102 @@ struct itinerary {
   std::optional<std::vector<std::shared_ptr<otpo::fare>>> _fares;
 };
 
+int convertTime(const std::string& date, const std::string& time,
+                bool extend = false) {
+  std::string date_str = date + " " + time;
+  const char* format = "%Y-%m-%d %H:%M:%S";
+
+  std::tm result = {};
+  std::istringstream ss(date_str);
+  if (strptime(date_str.c_str(), format, &result) == nullptr) {
+    throw std::runtime_error("strptime error");
+  }
+  if (extend) {
+    result.tm_hour = result.tm_hour + 2;
+  }
+
+  return timegm(&result);
+};
+
 struct plan {
+  plan(std::optional<std::string>&& dateArg,
+       std::optional<std::string>&& timeArg,
+       std::unique_ptr<otp::InputCoordinates>&& fromArg,
+       std::unique_ptr<otp::InputCoordinates>&& toArg,
+       std::optional<std::string>&& fromPlaceArg,
+       std::optional<std::string>&& toPlaceArg,
+       std::optional<bool>&& wheelchairArg,
+       std::optional<int>&& numItinerariesArg,
+       std::optional<double>&& /* walkReluctanceArg */,
+       std::optional<double>&& /* walkSpeedArg */,
+       std::optional<double>&& /* bikeSpeedArg */,
+       std::optional<otp::OptimizeType>&& /* optimizeArg */,
+       std::unique_ptr<otp::InputTriangle>&& /* triangleArg */,
+       std::optional<bool>&& /* arriveByArg */,
+       std::unique_ptr<otp::InputUnpreferred>&& /* unpreferredArg */,
+       std::optional<int>&& /* walkBoardCostArg */,
+       std::optional<int>&& /* transferPenaltyArg */,
+       std::optional<std::vector<
+           std::unique_ptr<otp::TransportMode>>>&& /* transportModesArg */,
+       std::optional<int>&& /* minTransferTimeArg */,
+       std::optional<std::string>&& /* localeArg */,
+       std::optional<std::vector<
+           std::optional<std::string>>>&& /* allowedTicketTypesArg */,
+       std::optional<std::vector<
+           std::optional<std::string>>>&& /* allowedVehicleRentalNetworksArg */,
+       std::optional<double>&& /* maxWalkDistanceArg */,
+       std::optional<bool>&& /* disableRemainingWeightHeuristicArg */,
+       std::optional<double>&& /* itineraryFilteringArg */,
+       std::optional<std::vector<std::unique_ptr<
+           otp::InputCoordinates>>>&& /* intermediatePlacesArg */) {}
+
   explicit plan(std::optional<std::string>&& dateArg,
+                std::optional<std::string>&& timeArg,
                 std::unique_ptr<otp::InputCoordinates>&& fromArg,
-                std::unique_ptr<otp::InputCoordinates>&& toArg) {
-
-    date_arg = gql::response::Value{dateArg.value_or("unknown")};
-    from_arg = std::make_shared<otpo::Place>(
-        std::make_shared<place>(std::move(fromArg)));
-    to_arg = std::make_shared<otpo::Place>(
-        std::make_shared<place>(std::move(toArg)));
-
-    auto const interval = Interval(1692869160, 1692876360);
-    auto const position = motis::Position{50.758075, 6.105464};
+                std::unique_ptr<otp::InputCoordinates>&& toArg,
+                std::optional<int>&& numItinerariesArg) {
 
     mm::message_creator mc;
+
+    auto const begin = convertTime(dateArg.value(), timeArg.value());
+    auto const end = convertTime(dateArg.value(), timeArg.value(), true);
+
+    std::cout << begin << " " << end << "\n";
+
+    auto const interval = Interval(1692869160, 1692876360);
+    auto const start_position = motis::Position{fromArg->lat, fromArg->lon};
+    auto const imd_start = intermodal::CreateIntermodalPretripStart(
+                               mc, &start_position, &interval,
+                               numItinerariesArg.value_or(3), true, true)
+                               .Union();
+    auto const imd_start_modes = mc.CreateVector(
+        std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
+            intermodal::CreateModeWrapper(
+                mc, intermodal::Mode::Mode_FootPPR,
+                intermodal::CreateFootPPR(
+                    mc, motis::ppr::CreateSearchOptions(
+                            mc, mc.CreateString("default"), 900))
+                    .Union())});
+    auto dest =
+        intermodal::CreateInputPosition(mc, toArg->lat, toArg->lon).Union();
+    auto const dest_modes = mc.CreateVector(
+        std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
+            intermodal::CreateModeWrapper(
+                mc, intermodal::Mode::Mode_FootPPR,
+                intermodal::CreateFootPPR(
+                    mc, motis::ppr::CreateSearchOptions(
+                            mc, mc.CreateString("default"), 900))
+                    .Union())});
+
     mc.create_and_finish(
         MsgContent_IntermodalRoutingRequest,
         intermodal::CreateIntermodalRoutingRequest(
-            mc, intermodal::IntermodalStart_IntermodalPretripStart,
-            intermodal::CreateIntermodalPretripStart(mc, &position, &interval,
-                                                     5, true, true)
-                .Union(),
-            mc.CreateVector(
-                std::vector<
-                    flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
-                    intermodal::CreateModeWrapper(
-                        mc, intermodal::Mode::Mode_FootPPR,
-                        intermodal::CreateFootPPR(
-                            mc, motis::ppr::CreateSearchOptions(
-                                    mc, mc.CreateString("default"), 900))
-                            .Union())}),
+            mc, intermodal::IntermodalStart_IntermodalPretripStart, imd_start,
+            imd_start_modes,
             intermodal::IntermodalDestination::
                 IntermodalDestination_InputPosition,
-            intermodal::CreateInputPosition(mc, 50.782213999999996, 6.07519)
-                .Union(),
-            mc.CreateVector(
-                std::vector<
-                    flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
-                    intermodal::CreateModeWrapper(
-                        mc, intermodal::Mode::Mode_FootPPR,
-                        intermodal::CreateFootPPR(
-                            mc, motis::ppr::CreateSearchOptions(
-                                    mc, mc.CreateString("default"), 900))
-                            .Union())}),
-            motis::routing::SearchType_Default, motis::SearchDir_Forward,
-            mc.CreateString(""))
+            dest, dest_modes, motis::routing::SearchType_Default,
+            motis::SearchDir_Forward, mc.CreateString(""))
             .Union(),
         "/intermodal");
 
@@ -229,6 +279,11 @@ struct plan {
       std::cout << "long:" << lng << "\n";
     }
     std::cout << intermodal_res->connections()->size() << "\n";
+
+    from_arg = std::make_shared<otpo::Place>(
+        std::make_shared<place>(std::move(fromArg)));
+    to_arg = std::make_shared<otpo::Place>(
+        std::make_shared<place>(std::move(toArg)));
   }
 
   gql::response::Value getDate() const noexcept {
@@ -266,13 +321,13 @@ struct plan {
 struct Query {
   std::shared_ptr<otpo::Plan> getPlan(
       std::optional<std::string>&& dateArg,
-      std::optional<std::string>&& /*  timeArg */,
+      std::optional<std::string>&& timeArg,
       std::unique_ptr<otp::InputCoordinates>&& fromArg,
       std::unique_ptr<otp::InputCoordinates>&& toArg,
       std::optional<std::string>&& /*  fromPlaceArg */,
       std::optional<std::string>&& /*  toPlaceArg */,
       std::optional<bool>&& /* wheelchairArg */,
-      std::optional<int>&& /* numItinerariesArg */,
+      std::optional<int>&& numItinerariesArg,
       std::optional<gql::response::Value>&& /* searchWindowArg */,
       std::optional<std::string>&& /* pageCursorArg */,
       std::optional<double>&& /* bikeReluctanceArg */,
@@ -335,7 +390,8 @@ struct Query {
           otp::InputCoordinates>>>&& /* intermediatePlacesArg */,
       std::optional<std::string>&& /* startTransitTripIdArg */) const noexcept {
     return std::make_shared<otpo::Plan>(std::make_shared<plan>(
-        std::move(dateArg), std::move(fromArg), std::move(toArg)));
+        std::move(dateArg), std::move(timeArg), std::move(fromArg),
+        std::move(toArg), std::move(numItinerariesArg)));
   }
 };
 
