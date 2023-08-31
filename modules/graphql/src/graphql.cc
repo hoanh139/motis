@@ -1,5 +1,9 @@
 #include "motis/graphql/graphql.h"
 
+#include "motis/core/common/date_time_util.h"
+#include "motis/core/journey/message_to_journeys.h"
+#include "motis/core/journey/journey.h"
+
 #include "motis/module/context/motis_call.h"
 #include "graphqlservice/JSONResponse.h"
 
@@ -25,19 +29,34 @@ using Boolean = gql::response::BooleanType;
 using Long = gql::response::IntType;
 using Int = gql::response::IntType;
 
+template <typename T>
+int ReturnCorrespondPosition(int pos, const std::vector<T>& vec) {
+  for(size_t i=0; i<vec.size(); i++)
+    if (pos > vec[i].from_ && pos < vec[i].to_) {
+      return i;
+    }
+  return -1;
+}
+
+struct station{
+  motis::journey::stop stop_;
+  motis::journey::transport transport_;
+  motis::journey::trip trip_;
+  motis::journey::ranged_attribute ranged_attribute;
+};
+
 struct place {
   explicit place(std::unique_ptr<otp::InputCoordinates>&& coord) {
-    _lon = coord->lon;
-    _lat = coord->lat;
+    lat_ = coord->lat;
+    lon_ = coord->lon;
     //    _stop = nullptr;
   };
-  place(double const lat, double const lon) : _lat{lat}, _lon{lon} {}
   //  std::optional<std::string> getName() const noexcept { return _name; };
   //  std::optional<otp::VertexType> getVertexType() const noexcept {
   //    return vertex_type;
   //  };
-  double getLat() const noexcept { return _lat; }
-  double getLon() const noexcept { return _lon; }
+  double getLat() const noexcept { return lat_; }
+  double getLon() const noexcept { return lon_; }
   //    std::shared_ptr<otpo::Stop> getStop() const noexcept { return _stop; };
   //    std::shared_ptr<otpo::BikeRentalStation> getBikeRentalStation()
   //        const noexcept {
@@ -46,8 +65,8 @@ struct place {
   //    std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
   //      return bike_park;
   //    };
-  double _lat;
-  double _lon;
+  double lat_;
+  double lon_;
   //  std::optional<std::string> _name;
   //  std::optional<otp::VertexType> vertex_type;
   //  std::shared_ptr<otpo::Stop> _stop;
@@ -163,22 +182,84 @@ struct itinerary {
   std::optional<std::vector<std::shared_ptr<otpo::fare>>> _fares;
 };
 
-int convertTime(const std::string& date, const std::string& time,
+int convertTime(const std::string& dateArg, const std::string& timeArg,
                 bool extend = false) {
-  std::string date_str = date + " " + time;
-  const char* format = "%Y-%m-%d %H:%M:%S";
-
-  std::tm result = {};
-  std::istringstream ss(date_str);
-  if (strptime(date_str.c_str(), format, &result) == nullptr) {
-    throw std::runtime_error("strptime error");
-  }
+  std::string time = timeArg;
   if (extend) {
+    const char* format = "%H:%M:%S";
+    std::tm result = {};
+    std::stringstream ss(time);
+    if (strptime(time.c_str(), format, &result) == nullptr) {
+      throw std::runtime_error("strptime error");
+    }
     result.tm_hour = result.tm_hour + 2;
+    ss << std::put_time(&result, format);
+    time = ss.str();
   }
 
-  return timegm(&result);
+  std::string date_str = dateArg + " " + time;
+  auto const start_unix_time = motis::parse_unix_time(date_str, "%Y-%m-%d %H:%M:%S %Z");
+
+  return start_unix_time;
 };
+
+const std::vector<station>& createListOfStations(const motis::journey& jn){
+  std::vector<station> stations;
+  for(size_t pos =0; pos < jn.stops_.size(); pos++){
+    station s;
+    s.stop_ = jn.stops_.at(pos);
+    if(int corr_pos = (ReturnCorrespondPosition(pos, jn.transports_)) != -1){
+      s.transport_ = jn.transports_.at(corr_pos);
+    }
+    if(int corr_pos = (ReturnCorrespondPosition(pos, jn.trips_)) != -1){
+      s.trip_ = jn.trips_.at(corr_pos);
+    }
+    if(int corr_pos = (ReturnCorrespondPosition(pos, jn.attributes_)) != -1){
+      s.ranged_attribute = jn.attributes_.at(corr_pos);
+    }
+    stations.push_back(s);
+  }
+  return stations;
+}
+
+void createItinerary(const Connection* con){
+  //create other infos
+  auto const journey = motis::convert(con);
+  auto const start_time = journey.stops_.begin()->departure_.timestamp_;
+  auto const end_time = (journey.stops_.end()--)->arrival_.timestamp_;
+  auto const duration = start_time - end_time;
+
+  auto const station_list = createListOfStations(journey);
+  //create legs
+  for(auto const tran : journey.transports_){
+    auto const start_time_leg = journey.stops_.at(tran.from_).departure_.timestamp_;
+    auto const end_time_leg = journey.stops_.at(tran.from_).arrival_.timestamp_;
+    auto const departure_delay_leg = 0;
+    auto const arrival_delay_leg = 0;
+    auto const duration_leg = tran.duration_;
+    //legGeometry
+    //agency
+    auto const real_time = false;
+    //realTimeState
+    auto const distance_= 0; // Can't be determined
+    //auto const transis_leg = 0;
+    //from
+    //to
+    //route
+    //trip
+    //intermediatePlaces
+    //intermediatePlace
+    //interlineWithPreviousLeg
+    //dropOffBookingInfo
+    //alerts
+
+    if(tran.is_walk_){
+    }
+    else{
+
+    }
+  }
+}
 
 struct plan {
   plan(std::optional<std::string>&& dateArg,
@@ -218,14 +299,13 @@ struct plan {
                 std::unique_ptr<otp::InputCoordinates>&& toArg,
                 std::optional<int>&& numItinerariesArg) {
 
+    // Create Intermodal Routing Request
     mm::message_creator mc;
 
     auto const begin = convertTime(dateArg.value(), timeArg.value());
     auto const end = convertTime(dateArg.value(), timeArg.value(), true);
 
-    std::cout << begin << " " << end << "\n";
-
-    auto const interval = Interval(1692869160, 1692876360);
+    auto const interval = Interval(begin, end);
     auto const start_position = motis::Position{fromArg->lat, fromArg->lon};
     auto const imd_start = intermodal::CreateIntermodalPretripStart(
                                mc, &start_position, &interval,
@@ -261,13 +341,17 @@ struct plan {
             motis::SearchDir_Forward, mc.CreateString(""))
             .Union(),
         "/intermodal");
-
+    //Response Handle
     auto const response = motis_call(make_msg(mc));
     auto const res_value = response->val();
 
-    std::cout << res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
-              << "\n";
+//    std::cout << res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
+//              << "\n";
 
+    //date_arg init
+    date_arg = gql::response::Value{begin};
+
+    //Itineraries init
     auto const intermodal_res = motis_content(RoutingResponse, res_value);
     for (auto const c : *intermodal_res->connections()) {
       auto tryyyy = c;
@@ -275,11 +359,12 @@ struct plan {
       auto variable = c->attributes();
       auto lat = c->stops()->begin()->station()->pos()->lat();
       auto lng = c->stops()->begin()->station()->pos()->lng();
-      std::cout << "lat:" << lat << "\n";
-      std::cout << "long:" << lng << "\n";
-    }
-    std::cout << intermodal_res->connections()->size() << "\n";
 
+      auto const start_time = stops->begin()->departure()->time();
+
+    }
+
+    // try from and to
     from_arg = std::make_shared<otpo::Place>(
         std::make_shared<place>(std::move(fromArg)));
     to_arg = std::make_shared<otpo::Place>(

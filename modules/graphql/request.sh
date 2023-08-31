@@ -5,14 +5,14 @@ curl -X POST -d '{
     "date" : "2023-08-28",
     "time": "10:18:43",
     "from": {
-      "lat": 2,
-      "lon": 3
+      "lat": 50.758075,
+      "lon": 6.105464
     },
     "to": {
-      "lat": 1,
-      "lon": 1
+      "lat": 50.782213999999996,
+      "lon": 6.07519
     },
-    "numItineraries": 5
+    "numItineraries": 5FF
   }
 }\n
 \n' http://localhost:8080/graphql
