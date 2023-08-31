@@ -1,8 +1,8 @@
 #include "motis/graphql/graphql.h"
 
 #include "motis/core/common/date_time_util.h"
-#include "motis/core/journey/message_to_journeys.h"
 #include "motis/core/journey/journey.h"
+#include "motis/core/journey/message_to_journeys.h"
 
 #include "motis/module/context/motis_call.h"
 #include "graphqlservice/JSONResponse.h"
@@ -31,14 +31,14 @@ using Int = gql::response::IntType;
 
 template <typename T>
 int ReturnCorrespondPosition(int pos, const std::vector<T>& vec) {
-  for(size_t i=0; i<vec.size(); i++)
+  for (size_t i = 0; i < vec.size(); i++)
     if (pos > vec[i].from_ && pos < vec[i].to_) {
       return i;
     }
   return -1;
 }
 
-struct station{
+struct station {
   motis::journey::stop stop_;
   motis::journey::transport transport_;
   motis::journey::trip trip_;
@@ -184,37 +184,39 @@ struct itinerary {
 
 int convertTime(const std::string& dateArg, const std::string& timeArg,
                 bool extend = false) {
-  std::string time = timeArg;
+  std::string time_arg = timeArg;
   if (extend) {
     const char* format = "%H:%M:%S";
     std::tm result = {};
-    std::stringstream ss(time);
-    if (strptime(time.c_str(), format, &result) == nullptr) {
+    std::stringstream ss(time_arg);
+    if (strptime(time_arg.c_str(), format, &result) == nullptr) {
       throw std::runtime_error("strptime error");
     }
     result.tm_hour = result.tm_hour + 2;
     ss << std::put_time(&result, format);
-    time = ss.str();
+    time_arg = ss.str();
   }
 
-  std::string date_str = dateArg + " " + time;
-  auto const start_unix_time = motis::parse_unix_time(date_str, "%Y-%m-%d %H:%M:%S %Z");
+  auto date_str = dateArg + " " + time_arg + " CET";
+  //  auto date_str = "2021-12-17 12:26:30 CET"; "2023-08-28 10:18:43 CET"
+  auto const start_unix_time =
+      motis::parse_unix_time(date_str, "%Y-%m-%d %H:%M:%S %Z");
 
   return start_unix_time;
 };
 
-const std::vector<station>& createListOfStations(const motis::journey& jn){
+const std::vector<station>& createListOfStations(const motis::journey& jn) {
   std::vector<station> stations;
-  for(size_t pos =0; pos < jn.stops_.size(); pos++){
+  for (size_t pos = 0; pos < jn.stops_.size(); pos++) {
     station s;
     s.stop_ = jn.stops_.at(pos);
-    if(int corr_pos = (ReturnCorrespondPosition(pos, jn.transports_)) != -1){
+    if (int corr_pos = (ReturnCorrespondPosition(pos, jn.transports_)) != -1) {
       s.transport_ = jn.transports_.at(corr_pos);
     }
-    if(int corr_pos = (ReturnCorrespondPosition(pos, jn.trips_)) != -1){
+    if (int corr_pos = (ReturnCorrespondPosition(pos, jn.trips_)) != -1) {
       s.trip_ = jn.trips_.at(corr_pos);
     }
-    if(int corr_pos = (ReturnCorrespondPosition(pos, jn.attributes_)) != -1){
+    if (int corr_pos = (ReturnCorrespondPosition(pos, jn.attributes_)) != -1) {
       s.ranged_attribute = jn.attributes_.at(corr_pos);
     }
     stations.push_back(s);
@@ -222,41 +224,41 @@ const std::vector<station>& createListOfStations(const motis::journey& jn){
   return stations;
 }
 
-void createItinerary(const Connection* con){
-  //create other infos
+void createItinerary(const Connection* con) {
+  // create other infos
   auto const journey = motis::convert(con);
   auto const start_time = journey.stops_.begin()->departure_.timestamp_;
   auto const end_time = (journey.stops_.end()--)->arrival_.timestamp_;
   auto const duration = start_time - end_time;
 
   auto const station_list = createListOfStations(journey);
-  //create legs
-  for(auto const tran : journey.transports_){
-    auto const start_time_leg = journey.stops_.at(tran.from_).departure_.timestamp_;
+
+  // create legs
+  for (auto const tran : journey.transports_) {
+    auto const start_time_leg =
+        journey.stops_.at(tran.from_).departure_.timestamp_;
     auto const end_time_leg = journey.stops_.at(tran.from_).arrival_.timestamp_;
     auto const departure_delay_leg = 0;
     auto const arrival_delay_leg = 0;
     auto const duration_leg = tran.duration_;
-    //legGeometry
-    //agency
+    // legGeometry
+    // agency
     auto const real_time = false;
-    //realTimeState
-    auto const distance_= 0; // Can't be determined
-    //auto const transis_leg = 0;
-    //from
-    //to
-    //route
-    //trip
-    //intermediatePlaces
-    //intermediatePlace
-    //interlineWithPreviousLeg
-    //dropOffBookingInfo
-    //alerts
+    // realTimeState
+    auto const distance_ = 0;  // Can't be determined
+    // auto const transis_leg = 0;
+    // from
+    // to
+    // route
+    // trip
+    // intermediatePlaces
+    // intermediatePlace
+    // interlineWithPreviousLeg
+    // dropOffBookingInfo
+    // alerts
 
-    if(tran.is_walk_){
-    }
-    else{
-
+    if (tran.is_walk_) {
+    } else {
     }
   }
 }
@@ -306,6 +308,7 @@ struct plan {
     auto const end = convertTime(dateArg.value(), timeArg.value(), true);
 
     auto const interval = Interval(begin, end);
+    //    auto const interval = Interval(1692869160, 1692876360);
     auto const start_position = motis::Position{fromArg->lat, fromArg->lon};
     auto const imd_start = intermodal::CreateIntermodalPretripStart(
                                mc, &start_position, &interval,
@@ -341,17 +344,17 @@ struct plan {
             motis::SearchDir_Forward, mc.CreateString(""))
             .Union(),
         "/intermodal");
-    //Response Handle
+    // Response Handle
     auto const response = motis_call(make_msg(mc));
     auto const res_value = response->val();
 
-//    std::cout << res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
-//              << "\n";
+    std::cout << res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
+              << "\n";
 
-    //date_arg init
-    date_arg = gql::response::Value{begin};
+    // date_arg init
+    //    date_arg = gql::response::Value{begin};
 
-    //Itineraries init
+    // Itineraries init
     auto const intermodal_res = motis_content(RoutingResponse, res_value);
     for (auto const c : *intermodal_res->connections()) {
       auto tryyyy = c;
@@ -361,7 +364,6 @@ struct plan {
       auto lng = c->stops()->begin()->station()->pos()->lng();
 
       auto const start_time = stops->begin()->departure()->time();
-
     }
 
     // try from and to
