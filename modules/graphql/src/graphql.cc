@@ -43,13 +43,18 @@ struct station {
   motis::journey::transport transport_;
   motis::journey::trip trip_;
   motis::journey::ranged_attribute ranged_attribute;
-  bool is_end_station {false};
-  bool is_start_station {false};
+  bool is_end_station{false};
+  bool is_start_station{false};
   motis::journey::stop next_stop_;
 };
 
 struct place {
-  explicit place(double latArg, double lonArg, std::optional<std::string>&& nameArg, otp::VertexType&& vertexTypeArg, std::shared_ptr<otpo::Stop>&& stopArg, std::shared_ptr<otpo::BikeRentalStation>&& bikeRentalStationArg, std::shared_ptr<otpo::BikePark>&& bikeParkArg, std::shared_ptr<otpo::VehicleParking>&& vehicleParkingArg){
+  explicit place(
+      double latArg, double lonArg, std::optional<std::string>&& nameArg,
+      otp::VertexType&& vertexTypeArg, std::shared_ptr<otpo::Stop>&& stopArg,
+      std::shared_ptr<otpo::BikeRentalStation>&& bikeRentalStationArg,
+      std::shared_ptr<otpo::BikePark>&& bikeParkArg,
+      std::shared_ptr<otpo::VehicleParking>&& vehicleParkingArg) {
     lat_ = latArg;
     lon_ = lonArg;
     name_ = nameArg;
@@ -73,7 +78,7 @@ struct place {
   std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
     return bike_park;
   };
-  std::shared_ptr<otpo::VehicleParking> getVehicleParking() const noexcept{
+  std::shared_ptr<otpo::VehicleParking> getVehicleParking() const noexcept {
     return vehicle_parking;
   };
   double lat_;
@@ -217,18 +222,17 @@ int convertTime(const std::string& dateArg, const std::string& timeArg,
   return start_unix_time;
 };
 
-const std::vector<station>& createListOfStations(const motis::journey& jn) {
+const std::vector<station> createListOfStations(const motis::journey& jn) {
   std::vector<station> stations;
   for (size_t pos = 0; pos < jn.stops_.size(); pos++) {
     station s;
     s.stop_ = jn.stops_.at(pos);
-    if(pos=0){
+    if (pos == 0) {
       s.is_start_station = true;
     }
-    if((pos + 1) < jn.stops_.size()){
-      s.next_stop_ = jn.stops_.at(pos+1);
-    }
-    else{
+    if ((pos + 1) < jn.stops_.size()) {
+      s.next_stop_ = jn.stops_.at(pos + 1);
+    } else {
       s.is_end_station = true;
     }
     if (int corr_pos = (ReturnCorrespondPosition(pos, jn.transports_)) != -1) {
@@ -255,12 +259,14 @@ void createItinerary(const Connection* con) {
   auto const stations = createListOfStations(journey);
 
   // create legs
-  for (auto const tran : journey.transports_) {
-    auto const start_time_leg =
-        stations.at(tran.from_).stop_.departure_.timestamp_;
-    auto const end_time_leg = stations.at(tran.to_).stop_.arrival_.timestamp_;
+  for (auto const& tran : journey.transports_) {
+    auto const station_from = stations.at(tran.from_);
+    auto const station_to = stations.at(tran.to_);
 
-    auto const departure_delay= 0;
+    auto const start_time_leg = station_from.stop_.departure_.timestamp_;
+    auto const end_time_leg = station_to.stop_.arrival_.timestamp_;
+
+    auto const departure_delay = 0;
     auto const arrival_delay = 0;
     auto const duration_leg = tran.duration_;
     // legGeometry
@@ -270,27 +276,64 @@ void createItinerary(const Connection* con) {
     auto const distance_ = 0;  // Can't be determined
     // auto const transis_leg = 0;
 
-    //Create from(Place)
-    double latFrom = stations.at(tran.from_).stop_.lat_;
-    double lonFrom = stations.at(tran.from_).stop_.lng_;
-    std::string name = stations.at(tran.from_).stop_.name_;
+    // Create from(Place)
+    double latFrom = station_from.stop_.lat_;
+    double lonFrom = station_from.stop_.lng_;
+    std::string name = station_from.stop_.name_;
     otp::VertexType vertexTypeFrom;
-    if(stations.at(tran.from_).is_start_station){
+    if (station_from.is_start_station) {
       vertexTypeFrom = otp::VertexType::NORMAL;
-    }
-    else{
+    } else {
       vertexTypeFrom = otp::VertexType::TRANSIT;
+      // Create stop
+      auto const fromID = station_from.stop_.eva_no_;
+      // gtfsId ?? FeedID
+      // code
+      // plattformCode
+      // zoneID
+      auto const fromName = tran.direction_;
+      // vehicleModes
+      otp::Mode vehicleMode;
+      switch (tran.clasz_) {
+        case 0: {
+          vehicleMode = otp::Mode::AIRPLANE;
+          break;
+        }
+        case 1 || 2 || 4 || 5 || 6 || 7: {
+          vehicleMode = otp::Mode::RAIL;
+          break;
+        }
+        case 3 || 10: {
+          vehicleMode = otp::Mode::BUS;
+          break;
+        }
+        case 8: {
+          vehicleMode = otp::Mode::SUBWAY;
+          break;
+        }
+        case 9: {
+          vehicleMode = otp::Mode::TRAM;
+          break;
+        }
+        case 11: {
+          vehicleMode = otp::Mode::FERRY;
+          break;
+        }
+        default: {
+          vehicleMode = otp::Mode::TRANSIT;
+        }
+      }
+
+      // alerts
     }
 
+    auto const from = stations.at(tran.from_).stop_;  // wait
 
-    auto const from = stations.at(tran.from_).stop_; // wait
-
-
-    if(stations.at(tran.to_).is_end_station){
+    if (station_to.is_end_station) {
       vertexTypeFrom = otp::VertexType::NORMAL;
     }
 
-    auto const to = stations.at(tran.to_).stop_; // wait
+    auto const to = stations.at(tran.to_).stop_;  // wait
 
     // route
     // trip
@@ -411,10 +454,13 @@ struct plan {
     }
     */
     // try from and to
-    from_arg = std::make_shared<otpo::Place>(
-        std::make_shared<place>(fromArg->lat, fromArg->lon, "", otp::VertexType::NORMAL, std::move(nullptr),std::move(nullptr),std::move(nullptr), std::move(nullptr)));
-    to_arg = std::make_shared<otpo::Place>(
-        std::make_shared<place>(toArg->lat, toArg->lon, "", otp::VertexType::NORMAL, std::move(nullptr),std::move(nullptr),std::move(nullptr), std::move(nullptr)));
+    from_arg = std::make_shared<otpo::Place>(std::make_shared<place>(
+        fromArg->lat, fromArg->lon, "", otp::VertexType::NORMAL,
+        std::move(nullptr), std::move(nullptr), std::move(nullptr),
+        std::move(nullptr)));
+    to_arg = std::make_shared<otpo::Place>(std::make_shared<place>(
+        toArg->lat, toArg->lon, "", otp::VertexType::NORMAL, std::move(nullptr),
+        std::move(nullptr), std::move(nullptr), std::move(nullptr)));
   }
 
   gql::response::Value getDate() const noexcept {
