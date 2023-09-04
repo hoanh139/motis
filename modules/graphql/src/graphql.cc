@@ -43,35 +43,47 @@ struct station {
   motis::journey::transport transport_;
   motis::journey::trip trip_;
   motis::journey::ranged_attribute ranged_attribute;
+  bool is_end_station {false};
+  bool is_start_station {false};
+  motis::journey::stop next_stop_;
 };
 
 struct place {
-  explicit place(std::unique_ptr<otp::InputCoordinates>&& coord) {
-    lat_ = coord->lat;
-    lon_ = coord->lon;
-    //    _stop = nullptr;
+  explicit place(double latArg, double lonArg, std::optional<std::string>&& nameArg, otp::VertexType&& vertexTypeArg, std::shared_ptr<otpo::Stop>&& stopArg, std::shared_ptr<otpo::BikeRentalStation>&& bikeRentalStationArg, std::shared_ptr<otpo::BikePark>&& bikeParkArg, std::shared_ptr<otpo::VehicleParking>&& vehicleParkingArg){
+    lat_ = latArg;
+    lon_ = lonArg;
+    name_ = nameArg;
+    vertex_type = vertexTypeArg;
+    stop_ = stopArg;
+    bike_rental_station = bikeRentalStationArg;
+    bike_park = bikeParkArg;
+    vehicle_parking = vehicleParkingArg;
+  }
+  std::optional<std::string> getName() const noexcept { return name_; };
+  std::optional<otp::VertexType> getVertexType() const noexcept {
+    return vertex_type;
   };
-  //  std::optional<std::string> getName() const noexcept { return _name; };
-  //  std::optional<otp::VertexType> getVertexType() const noexcept {
-  //    return vertex_type;
-  //  };
   double getLat() const noexcept { return lat_; }
   double getLon() const noexcept { return lon_; }
-  //    std::shared_ptr<otpo::Stop> getStop() const noexcept { return _stop; };
-  //    std::shared_ptr<otpo::BikeRentalStation> getBikeRentalStation()
-  //        const noexcept {
-  //      return bike_rental_station;
-  //    };
-  //    std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
-  //      return bike_park;
-  //    };
+  std::shared_ptr<otpo::Stop> getStop() const noexcept { return stop_; };
+  std::shared_ptr<otpo::BikeRentalStation> getBikeRentalStation()
+      const noexcept {
+    return bike_rental_station;
+  };
+  std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
+    return bike_park;
+  };
+  std::shared_ptr<otpo::VehicleParking> getVehicleParking() const noexcept{
+    return vehicle_parking;
+  };
   double lat_;
   double lon_;
-  //  std::optional<std::string> _name;
-  //  std::optional<otp::VertexType> vertex_type;
-  //  std::shared_ptr<otpo::Stop> _stop;
-  //  std::shared_ptr<otpo::BikeRentalStation> bike_rental_station;
-  //  std::shared_ptr<otpo::BikePark> bike_park;
+  std::optional<std::string> name_;
+  std::optional<otp::VertexType> vertex_type;
+  std::shared_ptr<otpo::Stop> stop_;
+  std::shared_ptr<otpo::BikeRentalStation> bike_rental_station;
+  std::shared_ptr<otpo::BikePark> bike_park;
+  std::shared_ptr<otpo::VehicleParking> vehicle_parking;
 };
 
 struct geometrie {
@@ -210,6 +222,15 @@ const std::vector<station>& createListOfStations(const motis::journey& jn) {
   for (size_t pos = 0; pos < jn.stops_.size(); pos++) {
     station s;
     s.stop_ = jn.stops_.at(pos);
+    if(pos=0){
+      s.is_start_station = true;
+    }
+    if((pos + 1) < jn.stops_.size()){
+      s.next_stop_ = jn.stops_.at(pos+1);
+    }
+    else{
+      s.is_end_station = true;
+    }
     if (int corr_pos = (ReturnCorrespondPosition(pos, jn.transports_)) != -1) {
       s.transport_ = jn.transports_.at(corr_pos);
     }
@@ -231,15 +252,16 @@ void createItinerary(const Connection* con) {
   auto const end_time = (journey.stops_.end()--)->arrival_.timestamp_;
   auto const duration = start_time - end_time;
 
-  auto const station_list = createListOfStations(journey);
+  auto const stations = createListOfStations(journey);
 
   // create legs
   for (auto const tran : journey.transports_) {
     auto const start_time_leg =
-        journey.stops_.at(tran.from_).departure_.timestamp_;
-    auto const end_time_leg = journey.stops_.at(tran.from_).arrival_.timestamp_;
-    auto const departure_delay_leg = 0;
-    auto const arrival_delay_leg = 0;
+        stations.at(tran.from_).stop_.departure_.timestamp_;
+    auto const end_time_leg = stations.at(tran.to_).stop_.arrival_.timestamp_;
+
+    auto const departure_delay= 0;
+    auto const arrival_delay = 0;
     auto const duration_leg = tran.duration_;
     // legGeometry
     // agency
@@ -247,8 +269,29 @@ void createItinerary(const Connection* con) {
     // realTimeState
     auto const distance_ = 0;  // Can't be determined
     // auto const transis_leg = 0;
-    // from
-    // to
+
+    //Create from(Place)
+    double latFrom = stations.at(tran.from_).stop_.lat_;
+    double lonFrom = stations.at(tran.from_).stop_.lng_;
+    std::string name = stations.at(tran.from_).stop_.name_;
+    otp::VertexType vertexTypeFrom;
+    if(stations.at(tran.from_).is_start_station){
+      vertexTypeFrom = otp::VertexType::NORMAL;
+    }
+    else{
+      vertexTypeFrom = otp::VertexType::TRANSIT;
+    }
+
+
+    auto const from = stations.at(tran.from_).stop_; // wait
+
+
+    if(stations.at(tran.to_).is_end_station){
+      vertexTypeFrom = otp::VertexType::NORMAL;
+    }
+
+    auto const to = stations.at(tran.to_).stop_; // wait
+
     // route
     // trip
     // intermediatePlaces
@@ -301,6 +344,7 @@ struct plan {
                 std::unique_ptr<otp::InputCoordinates>&& toArg,
                 std::optional<int>&& numItinerariesArg) {
 
+    /*
     // Create Intermodal Routing Request
     mm::message_creator mc;
 
@@ -365,12 +409,12 @@ struct plan {
 
       auto const start_time = stops->begin()->departure()->time();
     }
-
+    */
     // try from and to
     from_arg = std::make_shared<otpo::Place>(
-        std::make_shared<place>(std::move(fromArg)));
+        std::make_shared<place>(fromArg->lat, fromArg->lon, "", otp::VertexType::NORMAL, std::move(nullptr),std::move(nullptr),std::move(nullptr), std::move(nullptr)));
     to_arg = std::make_shared<otpo::Place>(
-        std::make_shared<place>(std::move(toArg)));
+        std::make_shared<place>(toArg->lat, toArg->lon, "", otp::VertexType::NORMAL, std::move(nullptr),std::move(nullptr),std::move(nullptr), std::move(nullptr)));
   }
 
   gql::response::Value getDate() const noexcept {

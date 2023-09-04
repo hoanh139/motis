@@ -1,5 +1,5 @@
 curl -X POST -d '{
-  "query": "query GetPlan($date: String!, $time: String!,$from: InputCoordinates!, $to: InputCoordinates!, $numItineraries: Int!) {\n  plan(date: $date, time: $time, from: $from, to: $to, numItineraries: $numItineraries) {\n     from\n{\n    lat\n    lon\n    }\n    }\n  }",
+  "query": "query GetPlan($date: String!, $time: String!,$from: InputCoordinates!, $to: InputCoordinates!, $numItineraries: Int!) {\n  plan(date: $date, time: $time, from: $from, to: $to, numItineraries: $numItineraries) {\n     from\n{\n    lat\n    lon\n  stop{\n id\n}\n   }\n    }\n  }",
   "operationName": "GetPlan",
   "variables": {
     "date" : "2023-08-24",
