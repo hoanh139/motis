@@ -485,6 +485,25 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
                                   duration_Itinerary, 0, std::move(legs)));
 }
 
+std::tuple<std::string, double, double> convertStringToCoordinate(
+    const std::string& arg) {
+  std::stringstream ss(arg);
+  std::string str;
+
+  getline(ss, str, ':');
+  auto const address_ = str;
+  getline(ss, str, ':');
+
+  getline(ss, str, ',');
+  //  std::cout << str << std::endl;
+  auto const lat_ = std::stod(str);
+  getline(ss, str, ',');
+  //  std::cout << str << std::endl;
+  auto const lon_ = std::stod(str);
+
+  return std::make_tuple(address_, lat_, lon_);
+}
+
 int convertTime(const std::string& dateArg, const std::string& timeArg,
                 bool extend = false) {
   std::string time_arg = timeArg;
@@ -542,8 +561,8 @@ struct plan {
 
   explicit plan(std::optional<std::string>&& dateArg,
                 std::optional<std::string>&& timeArg,
-                std::unique_ptr<otp::InputCoordinates>&& fromArg,
-                std::unique_ptr<otp::InputCoordinates>&& toArg,
+                std::optional<std::string>&& fromPlaceArg,
+                std::optional<std::string>&& toPlaceArg,
                 std::optional<int>&& numItinerariesArg) {
 
     // Create Intermodal Routing Request
@@ -552,9 +571,13 @@ struct plan {
     auto const begin = convertTime(dateArg.value(), timeArg.value());
     auto const end = convertTime(dateArg.value(), timeArg.value(), true);
 
+    auto const fromPos = convertStringToCoordinate(fromPlaceArg.value());
+    auto const toPos = convertStringToCoordinate(toPlaceArg.value());
+
     auto const interval = Interval(begin, end);
     //    auto const interval = Interval(1692869160, 1692876360);
-    auto const start_position = motis::Position{fromArg->lat, fromArg->lon};
+    auto const start_position =
+        motis::Position{std::get<1>(fromPos), std::get<2>(fromPos)};
     auto const imd_start = intermodal::CreateIntermodalPretripStart(
                                mc, &start_position, &interval,
                                numItinerariesArg.value_or(3), true, true)
@@ -567,8 +590,9 @@ struct plan {
                     mc, motis::ppr::CreateSearchOptions(
                             mc, mc.CreateString("default"), 900))
                     .Union())});
-    auto dest =
-        intermodal::CreateInputPosition(mc, toArg->lat, toArg->lon).Union();
+    auto dest = intermodal::CreateInputPosition(mc, std::get<1>(toPos),
+                                                std::get<2>(toPos))
+                    .Union();
     auto const dest_modes = mc.CreateVector(
         std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
             intermodal::CreateModeWrapper(
@@ -597,32 +621,21 @@ struct plan {
               << "\n";
 
     // date_arg init
-    //    date_arg = gql::response::Value{begin};
+    date_ = gql::response::Value{begin};
 
-    // Itineraries init
-
+    // itinerary init
     auto const intermodal_res = motis_content(RoutingResponse, res_value);
     for (auto const c : *intermodal_res->connections()) {
       auto const itinerary = createItinerary(c);
       itineraries_.push_back(itinerary);
     }
-
-    // try from and to
-    from_arg = std::make_shared<otpo::Place>(std::make_shared<place>(
-        fromArg->lat, fromArg->lon, "", otp::VertexType::NORMAL,
-        gql::response::Value{1}, std::move(nullptr), std::move(nullptr),
-        std::move(nullptr), std::move(nullptr)));
-    to_arg = std::make_shared<otpo::Place>(std::make_shared<place>(
-        toArg->lat, toArg->lon, "", otp::VertexType::NORMAL,
-        gql::response::Value{1}, std::move(nullptr), std::move(nullptr),
-        std::move(nullptr), std::move(nullptr)));
   }
 
   gql::response::Value getDate() const noexcept {
-    return gql::response::Value{"a"};
+    return gql::response::Value{date_};
   }
-  std::shared_ptr<otpo::Place> getFrom() const noexcept { return from_arg; }
-  std::shared_ptr<otpo::Place> getTo() const noexcept { return to_arg; }
+  std::shared_ptr<otpo::Place> getFrom() const noexcept { return from_; }
+  std::shared_ptr<otpo::Place> getTo() const noexcept { return to_; }
   std::vector<std::shared_ptr<otpo::Itinerary>> getItineraries()
       const noexcept {
     return itineraries_;
@@ -643,9 +656,9 @@ struct plan {
   //    return std::make_shared<otpo::debugOutput>(
   //        std::make_shared<debug_output>());
   //  }
-  gql::response::Value date_arg;
-  std::shared_ptr<otpo::Place> from_arg;
-  std::shared_ptr<otpo::Place> to_arg;
+  gql::response::Value date_;
+  std::shared_ptr<otpo::Place> from_;
+  std::shared_ptr<otpo::Place> to_;
 
   std::vector<std::shared_ptr<otpo::Itinerary>> itineraries_;
 };
@@ -656,8 +669,8 @@ struct Query {
       std::optional<std::string>&& timeArg,
       std::unique_ptr<otp::InputCoordinates>&& fromArg,
       std::unique_ptr<otp::InputCoordinates>&& toArg,
-      std::optional<std::string>&& /*  fromPlaceArg */,
-      std::optional<std::string>&& /*  toPlaceArg */,
+      std::optional<std::string>&& fromPlaceArg,
+      std::optional<std::string>&& toPlaceArg,
       std::optional<bool>&& /* wheelchairArg */,
       std::optional<int>&& numItinerariesArg,
       std::optional<gql::response::Value>&& /* searchWindowArg */,
@@ -722,8 +735,8 @@ struct Query {
           otp::InputCoordinates>>>&& /* intermediatePlacesArg */,
       std::optional<std::string>&& /* startTransitTripIdArg */) const noexcept {
     return std::make_shared<otpo::Plan>(std::make_shared<plan>(
-        std::move(dateArg), std::move(timeArg), std::move(fromArg),
-        std::move(toArg), std::move(numItinerariesArg)));
+        std::move(dateArg), std::move(timeArg), std::move(fromPlaceArg),
+        std::move(toPlaceArg), std::move(numItinerariesArg)));
   }
 };
 

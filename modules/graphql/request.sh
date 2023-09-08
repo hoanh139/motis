@@ -1,5 +1,5 @@
 curl -X POST -d '{
-  "query": "query GetPlan($date: String!, $time: String!,$from: InputCoordinates!, $to: InputCoordinates!, $numItineraries: Int!) {\n  plan(date: $date, time: $time, from: $from, to: $to, numItineraries: $numItineraries) {\n     from\n{\n    lat\n    lon\n  stop{\n id\n}\n   }\n    }\n  }",
+  "query": "query GetPlan($date: String!, $time: String!, $fromPlace: String!, $toPlace: String!, $numItineraries: Int!) {\n  plan(date: $date, time: $time, fromPlace: $fromPlace, toPlace: $toPlace, numItineraries: $numItineraries) {\n  date \n itineraries{\n startTime\n duration\n  }\n }\n  }",
   "operationName": "GetPlan",
   "variables": {
     "date" : "2023-08-24",
@@ -12,6 +12,8 @@ curl -X POST -d '{
       "lat": 50.782213999999996,
       "lon": 6.07519
     },
+    "fromPlace": "Dachsteinstraße 6, 71083 Herrenberg::50.758075,6.105464",
+    "toPlace": "Grasiger Weg, 71083 Herrenberg::50.782213999999996,6.07519",
     "numItineraries": 5
   }
 }\n
