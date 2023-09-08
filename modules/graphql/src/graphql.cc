@@ -78,16 +78,15 @@ struct agency {
   std::string getGtfsId() const noexcept { return gtfs_id; };
   std::string getName() const noexcept { return name_; };
   std::string getUrl() const noexcept { return url_; };
-  //  std::optional<std::string> getPhone() const noexcept { return phone_; };
-  //  std::optional<std::string> getFareUrl() const noexcept { return fare_url;
-  //  };
+  std::optional<std::string> getPhone() const noexcept { return phone_; };
+  std::optional<std::string> getFareUrl() const noexcept { return fare_url; };
 
   gql::response::IdType id_;
   std::string gtfs_id;
   std::string name_;
   std::string url_;
-  //  std::optional<std::string> phone_;
-  //  std::optional<std::string> fare_url;
+  std::optional<std::string> phone_;
+  std::optional<std::string> fare_url;
 };
 
 struct trip {
@@ -162,25 +161,26 @@ struct stop {
     lat_ = latArg;
     lon_ = lonArg;
   }
+
   gql::response::IdType getId() const noexcept { return id_; };
   std::string getGtfsId() const noexcept { return gtfs_id; };
   std::string getName() const noexcept { return name_; };
   std::optional<double> getLat() const noexcept { return lat_; };
   std::optional<double> getLon() const noexcept { return lon_; };
-  //  std::optional<std::string> getCode() const noexcept { return code; };
-  //  std::optional<std::string> getZoneId() const noexcept { return zone_id; };
-  //  std::optional<std::string> getPlatformCode() const noexcept {
-  //    return platform_code;
-  //  };
+  std::optional<std::string> getCode() const noexcept { return code; };
+  std::optional<std::string> getZoneId() const noexcept { return zone_id; };
+  std::optional<std::string> getPlatformCode() const noexcept {
+    return platform_code;
+  };
 
   gql::response::IdType id_;
   std::string gtfs_id;
   std::string name_;
   std::optional<double> lat_;
   std::optional<double> lon_;
-  //  std::optional<std::string> code;
-  //  std::optional<std::string> zone_id;
-  //  std::optional<std::string> platform_code;
+  std::optional<std::string> code;
+  std::optional<std::string> zone_id;
+  std::optional<std::string> platform_code;
 };
 
 struct place {
@@ -206,25 +206,25 @@ struct place {
     return gql::response::Value{arrival_time};
   }
   std::shared_ptr<otpo::Stop> getStop() const noexcept { return stop_; };
-  //  std::shared_ptr<otpo::BikeRentalStation> getBikeRentalStation()
-  //      const noexcept {
-  //    return bike_rental_station;
-  //  };
-  //  std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
-  //    return bike_park;
-  //  };
-  //  std::shared_ptr<otpo::VehicleParking> getVehicleParking() const noexcept {
-  //    return vehicle_parking;
-  //  };
+  std::shared_ptr<otpo::BikeRentalStation> getBikeRentalStation()
+      const noexcept {
+    return bike_rental_station;
+  };
+  std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
+    return bike_park;
+  };
+  std::shared_ptr<otpo::VehicleParking> getVehicleParking() const noexcept {
+    return vehicle_parking;
+  };
   double lat_;
   double lon_;
   gql::response::Value arrival_time;
   std::optional<std::string> name_;
   std::optional<otp::VertexType> vertex_type;
   std::shared_ptr<otpo::Stop> stop_;
-  //  std::shared_ptr<otpo::BikeRentalStation> bike_rental_station;
-  //  std::shared_ptr<otpo::BikePark> bike_park;
-  //  std::shared_ptr<otpo::VehicleParking> vehicle_parking;
+  std::shared_ptr<otpo::BikeRentalStation> bike_rental_station;
+  std::shared_ptr<otpo::BikePark> bike_park;
+  std::shared_ptr<otpo::VehicleParking> vehicle_parking;
 };
 
 struct geometrie {
@@ -290,13 +290,12 @@ struct leg {
   };
   std::shared_ptr<otpo::Agency> getAgency() const noexcept { return agency_; };
   std::optional<bool> getRealTime() const noexcept { return realtime_; };
-  //  std::optional<otp::RealtimeState> getRealtimeState() const noexcept {
-  //    return realtime_state;
-  //  };
+  std::optional<otp::RealtimeState> getRealtimeState() const noexcept {
+    return realtime_state;
+  };
   std::optional<double> getDistance() const noexcept { return distance_; };
   std::optional<bool> getTransitLeg() const noexcept { return transit_leg; };
-  //  std::optional<bool> getRentedBike() const noexcept { return rented_bike;
-  //  };
+  std::optional<bool> getRentedBike() const noexcept { return rented_bike; };
   std::shared_ptr<otpo::Place> getFrom() const noexcept { return from_; };
   std::shared_ptr<otpo::Place> getTo() const noexcept { return to_; };
   std::shared_ptr<otpo::Route> getRoute() const noexcept { return route_; };
@@ -311,10 +310,9 @@ struct leg {
   std::optional<bool> getInterlineWithPreviousLeg() const noexcept {
     return interline_with_previous_leg;
   };
-  //  std::shared_ptr<otpo::BookingInfo> getDropOffBookingInfo() const noexcept
-  //  {
-  //    return drop_off_booking_info;
-  //  };
+  std::shared_ptr<otpo::BookingInfo> getDropOffBookingInfo() const noexcept {
+    return drop_off_booking_info;
+  };
   std::optional<std::vector<std::shared_ptr<otpo::Alert>>> getAlerts()
       const noexcept {
     return alerts_;
@@ -325,13 +323,13 @@ struct leg {
   std::shared_ptr<otpo::Agency> agency_;
   std::shared_ptr<otpo::Place> from_;
   std::shared_ptr<otpo::Place> to_;
-  //  std::shared_ptr<otpo::BookingInfo> drop_off_booking_info;
+  std::shared_ptr<otpo::BookingInfo> drop_off_booking_info;
   std::shared_ptr<otpo::Geometry> leg_geometry;
   std::optional<std::vector<std::shared_ptr<otpo::Place>>> intermediate_places;
   std::optional<bool> realtime_;
-  //  std::optional<otp::RealtimeState> realtime_state;
+  std::optional<otp::RealtimeState> realtime_state;
   std::optional<bool> transit_leg;
-  //  std::optional<bool> rented_bike;
+  std::optional<bool> rented_bike;
   std::optional<gql::response::Value> start_time;
   std::optional<int> departure_delay;
   std::optional<int> arrival_delay;
@@ -422,12 +420,13 @@ otp::Mode getModeFromStation(const journey::transport& tran) {
 }
 
 std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
-    const journey::stop& stop, const journey::transport& transport) {
-  double lat = stop.lat_;
-  double lon = stop.lng_;
+    const journey::stop& stopArg, const journey::transport& transport) {
+  double lat = stopArg.lat_;
+  double lon = stopArg.lng_;
 
-  const std::string stopName = stop.name_;
-  auto const arrivalTime = stop.arrival_.timestamp_;
+  std::string stopName = stopArg.name_;
+
+  auto const arrivalTime = stopArg.arrival_.timestamp_;
   const std::shared_ptr<otpo::BikePark> bikePark = nullptr;
   // bikeRentalStation
 
@@ -442,15 +441,16 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
     vertexTypeFrom = otp::VertexType::TRANSIT;
 
     // Create stop
-    auto const stopID = stop.eva_no_;
+    auto stopID =
+        gql::response::IdType{gql::response::StringType{stopArg.eva_no_}};
     // gtfsId ?? FeedID
-    std::string const gtfsId = 0;
+    std::string gtfsId = "";
     // code
     // plattformCode
     // zoneID
     otp::Mode vehicleMode = getModeFromStation(transport);
-    //  stop_place = std::make_shared<otpo::Stop>(std::make_shared<stop>(stopID,
-    //  gtfsId, stopName, lat, lon));
+    stop_place = std::make_shared<otpo::Stop>(std::make_shared<stop>(
+        std::move(stopID), std::move(gtfsId), std::move(stopName), lat, lon));
   }
   return std::make_shared<otpo::Place>(
       std::make_shared<place>(lat, lon, stopName, std::move(vertexTypeFrom),
@@ -459,7 +459,6 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 
 std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
   auto const journey = motis::convert(con);
-  //  auto const stations = createListOfStations(journey);
 
   // create other infos
   auto const start_time_Itinerary =
@@ -492,14 +491,15 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
     // Create Agency
     std::shared_ptr<otpo::Agency> agc = nullptr;
     if (!tran.is_walk_) {
-      auto agency_id = gql::response::IdType("");
-      std::string agency_gtfs_id = "";
-      std::string agency_name = "";
-      std::string agency_url = "";
-      //      agc =
-      //      std::make_shared<otpo::Agency>(std::make_shared<agency>(std::move(agency_id),
-      //      std::move(agency_gtfs_id), std::move(agency_name),
-      //      std::move(agency_url)));
+      auto agency_id =
+          gql::response::IdType(gql::response::StringType{"unknown"});
+      std::string agency_gtfs_id = "1";
+      std::string agency_name = "1";
+      std::string agency_url = "1";
+      //      auto tryy = std::make_shared<agency>(
+      //          std::move(agency_id), std::move(agency_gtfs_id),
+      //          std::move(agency_name), std::move(agency_url));
+      //      agc = std::make_shared<otpo::Agency>();
     }
 
     auto const real_time = false;  //??
