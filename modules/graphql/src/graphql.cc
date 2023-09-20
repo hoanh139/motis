@@ -21,6 +21,9 @@ namespace fbb = flatbuffers;
 namespace gql = graphql;
 namespace otp = gql::otp;
 namespace otpo = otp::object;
+
+using motis::osrm::OSRMViaRouteResponse;
+
 using namespace std::string_view_literals;
 using namespace motis::routing;
 
@@ -457,7 +460,43 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
                               gql::response::Value{1}, std::move(stop_place)));
 }
 
-std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
+void caculateWalkingDistance(double start, double dest){
+  auto const waypoints =
+      std::vector<Position>{Position(start, dest)};
+
+  mm::message_creator mc;
+  mc.create_and_finish(
+      MsgContent_FootRoutingRequest,
+      ppr::CreateFootRoutingRequest(mc, mc.CreateString("car"),
+                                      mc.CreateVectorOfStructs(waypoints))
+          .Union(),
+      "/osrm/via");
+
+  auto const response = motis_call(make_msg(mc));
+  auto const osrm_msg = response->val();
+
+  auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
+}
+
+void caculateDistanceForVehicle(double start, double dest){
+  auto const waypoints =
+      std::vector<Position>{Position(start, dest)};
+
+  mm::message_creator mc;
+  mc.create_and_finish(
+      MsgContent_OSRMViaRouteRequest,
+      osrm::CreateOSRMViaRouteRequest(mc, mc.CreateString("car"),
+                                mc.CreateVectorOfStructs(waypoints))
+          .Union(),
+      "/osrm/via"); // car => train ?????
+
+  auto const response = motis_call(make_msg(mc));
+  auto const osrm_msg = response->val();
+
+  auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
+}
+
+std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con){
   auto const journey = motis::convert(con);
 
   // create other infos
@@ -466,6 +505,7 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
   auto const end_time_Itinerary = (journey.stops_.end()--)->arrival_.timestamp_;
   auto const duration_Itinerary = start_time_Itinerary - end_time_Itinerary;
   // walk_distance_Itinerary ??
+  // fares
 
   // create legs_Itinerary
   std::vector<std::shared_ptr<otpo::Leg>> legs;
@@ -706,22 +746,7 @@ struct plan {
       const noexcept {
     return itineraries_;
   }
-  //  std::vector<std::shared_ptr<gql::response::StringType>> getMessageEnums()
-  // =={
-  //    return std::vector<std::shared_ptr<gql::response::StringType>>();
-  //  }
-  //  std::vector<std::shared_ptr<gql::response::StringType>>
-  //  getMessageStrings() {
-  //    return std::vector<std::shared_ptr<gql::response::StringType>>();
-  //  }
-  //  std::vector<std::shared_ptr<gql::response::StringType>> getRoutingErrors()
-  //  {
-  //    return std::vector<std::shared_ptr<gql::response::StringType>>();
-  //  }
-  //  std::shared_ptr<otpo::debugOutput> getDebugOutput() {
-  //    return std::make_shared<otpo::debugOutput>(
-  //        std::make_shared<debug_output>());
-  //  }
+
   gql::response::Value date_;
   std::shared_ptr<otpo::Place> from_;
   std::shared_ptr<otpo::Place> to_;
