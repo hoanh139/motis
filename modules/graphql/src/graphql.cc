@@ -23,6 +23,7 @@ namespace otp = gql::otp;
 namespace otpo = otp::object;
 
 using motis::osrm::OSRMViaRouteResponse;
+using motis::ppr::FootRoutingResponse;
 
 using namespace std::string_view_literals;
 using namespace motis::routing;
@@ -460,43 +461,64 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
                               gql::response::Value{1}, std::move(stop_place)));
 }
 
-void caculateWalkingDistance(double start, double dest){
-  auto const waypoints =
-      std::vector<Position>{Position(start, dest)};
+// double caculateWalkingDistance(double start_lat, double start_lon,
+//                                double dest_lat, double dest_lon) {
+//   Position const start_pos{start_lat, start_lon};
+//
+//   mm::message_creator mc;
+//
+//   mc.create_and_finish(
+//       MsgContent_FootRoutingRequest,
+//       CreateFootRoutingRequest(
+//           mc, &start_pos,
+//           mc.CreateVectorOfStructs(
+//               std::vector<Position>{Position(dest_lat, dest_lon)}),
+//           ppr::CreateSearchOptions(mc, mc.CreateString("default"), 1000),
+//           SearchDir::SearchDir_Forward, false, false, false)
+//           .Union(),
+//       "/ppr/route");
+//
+//   auto const response = motis_call(make_msg(mc));
+//   auto const osrm_msg = response->val();
+//
+//   auto const ppr_resp = motis_content(FootRoutingResponse, osrm_msg);
+//
+//   auto const routes = ppr_resp->routes();
+//
+//   if (routes->size() > 0) {
+//     auto const route = routes->Get(0)->routes()->Get(0);
+//     auto const dist = route->distance();
+//     return dist;
+//   }
+//
+//   return 0;
+// }
 
-  mm::message_creator mc;
-  mc.create_and_finish(
-      MsgContent_FootRoutingRequest,
-      ppr::CreateFootRoutingRequest(mc, mc.CreateString("car"),
-                                      mc.CreateVectorOfStructs(waypoints))
-          .Union(),
-      "/osrm/via");
-
-  auto const response = motis_call(make_msg(mc));
-  auto const osrm_msg = response->val();
-
-  auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
-}
-
-void caculateDistanceForVehicle(double start, double dest){
-  auto const waypoints =
-      std::vector<Position>{Position(start, dest)};
+const OSRMViaRouteResponse* caculateDistanceViaOSRM(double start_lat,
+                                                    double start_lon,
+                                                    double dest_lat,
+                                                    double dest_lon,
+                                                    std::string const profile) {
+  auto const waypoints = std::vector<Position>{Position(start_lat, start_lon),
+                                               Position(dest_lat, dest_lon)};
 
   mm::message_creator mc;
   mc.create_and_finish(
       MsgContent_OSRMViaRouteRequest,
-      osrm::CreateOSRMViaRouteRequest(mc, mc.CreateString("car"),
-                                mc.CreateVectorOfStructs(waypoints))
+      osrm::CreateOSRMViaRouteRequest(mc, mc.CreateString(profile),
+                                      mc.CreateVectorOfStructs(waypoints))
           .Union(),
-      "/osrm/via"); // car => train ?????
+      "/osrm/via");  // car => train ?????
 
   auto const response = motis_call(make_msg(mc));
   auto const osrm_msg = response->val();
 
   auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
+
+  return osrm_resp;
 }
 
-std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con){
+std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
   auto const journey = motis::convert(con);
 
   // create other infos
@@ -504,7 +526,7 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con){
       journey.stops_.begin()->departure_.timestamp_;
   auto const end_time_Itinerary = (journey.stops_.end()--)->arrival_.timestamp_;
   auto const duration_Itinerary = start_time_Itinerary - end_time_Itinerary;
-  // walk_distance_Itinerary ??
+  auto walk_distance_Itinerary = 0;
   // fares
 
   // create legs_Itinerary
@@ -526,6 +548,21 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con){
 
     auto const duration_leg = tran.duration_;
 
+    // create osrm for geometry and distance
+    std::string profile;
+    if (tran.is_walk_) {
+      profile = "walk";
+    } else {
+      profile = "train";
+    }
+    auto const osrm_res = caculateDistanceViaOSRM(
+        stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, profile);
+
+    auto const distance_ = osrm_res->distance();
+
+    if (tran.is_walk_) {
+      walk_distance_Itinerary += distance_;
+    }
     // legGeometry
 
     // Create Agency
@@ -544,7 +581,6 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con){
 
     auto const real_time = false;  //??
     // realTimeState ??
-    auto const distance_ = 0;  // Can't be determined
 
     bool transit_leg = true;
     if (stop_from.name_ == "START" || stop_to.name_ == "END") {
