@@ -12,6 +12,7 @@
 
 #include "otp/AgencyObject.h"
 #include "otp/ItineraryObject.h"
+#include "otp/GeometryObject.h"
 #include "otp/LegObject.h"
 #include "otp/PatternObject.h"
 #include "otp/PlaceObject.h"
@@ -121,7 +122,9 @@ struct agency {
   std::string gtfs_id;
   std::string name_;
   std::string url_;
+  /* Phone number which customers can use to contact this agency */
   std::optional<std::string> phone_;
+  /* URL to a web page which has information of fares used by this agency */
   std::optional<std::string> fare_url;
 };
 
@@ -266,10 +269,14 @@ struct stop {
   std::string name_;
   std::optional<double> lat_;
   std::optional<double> lon_;
+  /* Stop code which is visible at the stop  */
   std::optional<std::string> code_;
+  /* Description of the stop, usually a street name */
   std::optional<std::string> desc_;
+  /* ID of the zone where this stop is located */
   std::optional<std::string> zone_id;
   std::optional<otp::Mode> vehicle_mode_;
+  /* Identifier of the platform, usually a number. This value is only present for stops that are part of a station */
   std::optional<std::string> platform_code;
   std::optional<std::vector<std::shared_ptr<otpo::Alert>>> alerts_;
 };
@@ -313,14 +320,18 @@ struct place {
   std::optional<std::string> name_;
   std::optional<otp::VertexType> vertex_type;
   std::shared_ptr<otpo::Stop> stop_;
+  /* The bike rental station related to the place */
   std::shared_ptr<otpo::BikeRentalStation> bike_rental_station;
+  /* The bike parking related to the place */
   std::shared_ptr<otpo::BikePark> bike_park;
+  /* The vehicle parking related to the place */
   std::shared_ptr<otpo::VehicleParking> vehicle_parking;
 };
 
-struct geometrie {
-  explicit geometrie(int length, const std::string& points){
-
+struct geometry {
+  explicit geometry(const int lengthArg, const std::string&& pointsArg){
+    length_ = lengthArg;
+    points_ = gql::response::Value{gql::response::StringType{pointsArg}};
   };
 
   std::optional<int> getLength() const noexcept { return length_; };
@@ -410,12 +421,18 @@ struct leg {
   std::shared_ptr<otpo::Agency> agency_;
   std::shared_ptr<otpo::Place> from_;
   std::shared_ptr<otpo::Place> to_;
+  /*
+   * Special booking information for the drop off stop of this leg if, for example, it needs
+   * to be booked in advance. This could be due to a flexible or on-demand service.
+   */
   std::shared_ptr<otpo::BookingInfo> drop_off_booking_info;
   std::shared_ptr<otpo::Geometry> leg_geometry;
   std::optional<std::vector<std::shared_ptr<otpo::Place>>> intermediate_places;
   std::optional<bool> realtime_;
+  /* State of real-time data */
   std::optional<otp::RealtimeState> realtime_state;
   std::optional<bool> transit_leg;
+  /* Whether this leg is traversed with a rented bike. */
   std::optional<bool> rented_bike;
   std::optional<gql::response::Value> start_time;
   std::optional<int> departure_delay;
@@ -429,14 +446,16 @@ struct leg {
 };
 
 struct itinerary {
-  explicit itinerary(int startTimeArg, int endTimeArg, int durationArg,
-                     double walkDistArg,
-                     std::vector<std::shared_ptr<otpo::Leg>>&& legsArg) {
+  explicit itinerary(const int startTimeArg, const int endTimeArg, const  int durationArg,
+                     const double walkDistArg,
+                     const std::vector<std::shared_ptr<otpo::Leg>>&& legsArg,
+                     const std::vector<std::shared_ptr<otpo::fare>>&& faresArg) {
     start_time = gql::response::Value{startTimeArg};
     end_time = gql::response::Value{endTimeArg};
     duration_ = gql::response::Value{durationArg};
     walk_distance = walkDistArg;
     legs_ = std::move(legsArg);
+    fares_ = std::move(faresArg);
   };
   std::optional<gql::response::Value> getStartTime() const noexcept {
     return start_time;
@@ -462,13 +481,16 @@ struct itinerary {
   std::optional<gql::response::Value> end_time;
   std::optional<gql::response::Value> duration_;
   std::optional<double> walk_distance;
+  /* Does the itinerary end without dropping off the rented bicycle */
   std::optional<bool> arrived_at_dest_with_rented_bicycle;
-
   std::vector<std::shared_ptr<otpo::Leg>> legs_;
+  /* Information about the fares for this itinerary. This is primarily a GTFS Fares V1 interface
+   * will be removed in the future.
+   */
   std::optional<std::vector<std::shared_ptr<otpo::fare>>> fares_;
 };
 
-// Begin
+/////////////////////////////////////// Begin ///////////////////////////////////////
 
 otp::Mode getModeFromStation(const journey::transport& tran) {
   if (tran.is_walk_) {
@@ -601,7 +623,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
   const std::string gtfs_id_trip;
   const std::string trip_headsign = transport.direction_;
 
-  //???? how to determine if the trip is a offbound or inbound travel
+  //???? how to determine if the trip is an offbound or inbound travel
   std::optional<std::string> direction_id_trip = "0";
 
   /////// Create pattern
@@ -647,6 +669,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
 
     // set as scheduled
     auto const realtime_state_ST = otp::RealtimeState::SCHEDULED;
+    // set as scheduled
     auto const pickup_type_ST = otp::PickupDropoffType::SCHEDULED;
 
     stoptimes_trip.push_back(
@@ -671,10 +694,10 @@ std::shared_ptr<otpo::Route> CreateRouteWithTransport(
     const std::vector<std::shared_ptr<otpo::Alert>>& alerts,
     const journey::transport& transport) {
 
-  std::string color = "";  //???
-  std::string gtfsId = "unknown_gtfs_id";  //???
+  std::string color = "";  // don't have info
+  std::string gtfsId = "unknown_gtfs_id";  // don't have info
   auto id =
-      gql::response::IdType{gql::response::StringType{"unknown_id"}};  //???
+      gql::response::IdType{gql::response::StringType{"unknown_id"}};  // don't have info
   std::string longName = transport.name_;
   std::string shortName = transport.name_;
 
@@ -713,7 +736,7 @@ std::shared_ptr<otpo::Route> CreateRouteWithTransport(
       mode = otp::TransitMode::FERRY;
       break;
   }
-  std::string url = "";
+  std::string url = ""; // don't have info
   return std::make_shared<otpo::Route>(std::make_shared<route>(
       std::move(id), std::move(gtfsId), std::move(agency), shortName, longName,
       mode, type, url, color, std::move(alerts)));
@@ -754,6 +777,25 @@ const journey::trip& GetJourneyTripAccordingToTransport(
   throw std::runtime_error("jounery trip error");
 }
 
+geo::polyline convertCoordVectorToPolyline(const flatbuffers::Vector<double>* coords){
+  double lat_ = 0;
+  double lon_ = 0;
+
+  geo::polyline polyline;
+   for(size_t i=0; i < coords->size(); i++){
+     if(i%2==0){
+       auto tryy = (*coords);
+       auto tr = tryy[1];
+       lat_ = coords->Get(i);
+     }
+     else{
+       lon_ = coords->Get(i);
+       polyline.push_back({lat_,lon_});
+     }
+   }
+   return polyline;
+}
+
 std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
   auto const journey = motis::convert(con);
 
@@ -763,7 +805,7 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
   auto const end_time_Itinerary = (journey.stops_.end()--)->arrival_.timestamp_;
   auto const duration_Itinerary = start_time_Itinerary - end_time_Itinerary;
   auto walk_distance_Itinerary = 0;
-  // fares
+  auto const fares = std::vector<std::shared_ptr<otpo::fare>>{};
 
   /////// create legs_Itinerary
   std::vector<std::shared_ptr<otpo::Leg>> legs;
@@ -786,20 +828,22 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
 
     // create osrm for geometry and distance
     double distance_ = 0;
-    geo::polyline poly_line;
+    geo::polyline polyline_leggeo;
 
     if (tran.is_walk_) {
       auto const osrm_res = caculateDistanceViaOSRM(
           stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, "foot");
       distance_ = osrm_res->distance();
+      polyline_leggeo = convertCoordVectorToPolyline(osrm_res->polyline()->coordinates());
     } else if (mode == otp::Mode::BUS) {
       auto const osrm_res = caculateDistanceViaOSRM(
           stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, "bus");
       distance_ = osrm_res->distance();
+      polyline_leggeo = convertCoordVectorToPolyline(osrm_res->polyline()->coordinates());
     } else {
       distance_ = geo::distance(geo::latlng{stop_from.lat_, stop_from.lng_},
                                 geo::latlng{stop_to.lat_, stop_to.lng_});
-      poly_line = {{stop_from.lat_, stop_from.lng_},
+      polyline_leggeo = {{stop_from.lat_, stop_from.lng_},
                    {stop_to.lat_, stop_to.lng_}};
     }
 
@@ -807,10 +851,11 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
       walk_distance_Itinerary += distance_;
     }
 
-    // legGeometry
-    //    auto poly = osrm_res->polyline();
-    //    auto const tryyy =
-    //    gql::response::Value{geo::encode_polyline(osrm_res->polyline())};
+    /////// Create Leggeometry
+    auto length_leggeo = polyline_leggeo.size();
+    auto const polyline_leggeo_encoded = geo::encode_polyline(polyline_leggeo);
+    auto const leggeo = std::make_shared<otpo::Geometry>(std::make_shared<geometry>(length_leggeo, std::move(polyline_leggeo_encoded)));
+    /////// End Leggeometry
 
     /////// Create Agency
     std::shared_ptr<otpo::Agency> agc_ = nullptr;
@@ -825,16 +870,15 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
           std::move(agency_name), std::move(agency_url)));
     }
 
-    auto const real_time = false;  //??
-    // realTimeState ??
+    auto const real_time = false;  // immmer false ??
 
     bool transit_leg = true;
     if (stop_from.name_ == "START" || stop_to.name_ == "END") {
       transit_leg = false;
     }
 
-    auto const rented_bike = false;  // ??
-    auto const alerts = std::vector<std::shared_ptr<otpo::Alert>>{};  // ??
+    auto const rented_bike = false;  // immmer false ??
+    auto const alerts = std::vector<std::shared_ptr<otpo::Alert>>{};  // immer leer ??
 
     auto const from =
         CreatePlaceWithTransport(journey.stops_.at(tran.from_), tran);
@@ -859,13 +903,12 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
       }
     }
 
-    bool intermediatePlace = false;  // ??
-    bool interlineWithPreviousLeg = false;  // ??
-    // dropOffBookingInfo - immer null ??
+    bool intermediatePlace = false;  // immmer false ??
+    bool interlineWithPreviousLeg = false;  // immmer false ??
 
     auto const l = std::make_shared<leg>(
         mode, std::move(agc_), std::move(from), std::move(to),
-        std::move(nullptr), std::move(intermediatePlaces), real_time,
+        std::move(leggeo), std::move(intermediatePlaces), real_time,
         transit_leg, start_time_leg, departure_delay, arrival_delay,
         interlineWithPreviousLeg, distance_, duration_leg, intermediatePlace,
         std::move(route), std::move(trip));
@@ -876,7 +919,7 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
 
   return std::make_shared<otpo::Itinerary>(std::make_shared<itinerary>(
       start_time_Itinerary, end_time_Itinerary, duration_Itinerary,
-      walk_distance_Itinerary, std::move(legs)));
+      walk_distance_Itinerary, std::move(legs), std::move(fares)));
 }
 
 std::tuple<std::string, double, double> convertStringToCoordinate(
@@ -969,7 +1012,7 @@ struct plan {
     auto const toPos = convertStringToCoordinate(toPlaceArg.value());
 
     auto const interval = Interval(begin, end);
-    //    auto const interval = Interval(1692869160, 1692876360);
+
     auto const start_position =
         motis::Position{std::get<1>(fromPos), std::get<2>(fromPos)};
     auto const imd_start = intermodal::CreateIntermodalPretripStart(
@@ -1014,7 +1057,6 @@ struct plan {
     //    std::cout << res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
     //              << "\n";
 
-    // date_arg init
     date_ = gql::response::Value{begin};
 
     // itinerary init
