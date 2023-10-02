@@ -173,6 +173,12 @@ struct trip {
   std::optional<std::string> direction_id;
   std::shared_ptr<otpo::Pattern> pattern_;
   std::optional<std::vector<std::shared_ptr<otpo::Stoptime>>> stoptimes_;
+  /*
+   * stoptimesForDate(
+   * """Date for which stoptimes are returned. Format: YYYYMMDD"""
+   * serviceDate: String
+   * ): [Stoptime]
+   */
   std::optional<std::vector<std::shared_ptr<otpo::Stoptime>>>
       stoptimes_for_date;
 };
@@ -311,6 +317,9 @@ struct place {
   std::shared_ptr<otpo::BikePark> getBikePark() const noexcept {
     return bike_park;
   };
+  std::shared_ptr<otpo::CarPark> getCarPark() const noexcept {
+    return car_park_;
+  }
   std::shared_ptr<otpo::VehicleParking> getVehicleParking() const noexcept {
     return vehicle_parking;
   };
@@ -324,6 +333,8 @@ struct place {
   std::shared_ptr<otpo::BikeRentalStation> bike_rental_station;
   /* The bike parking related to the place */
   std::shared_ptr<otpo::BikePark> bike_park;
+  /* The car parking related to the place */
+  std::shared_ptr<otpo::CarPark> car_park_;
   /* The vehicle parking related to the place */
   std::shared_ptr<otpo::VehicleParking> vehicle_parking;
 };
@@ -527,10 +538,6 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 
   auto const arrivalTime = stopArg.arrival_.timestamp_;
   const std::shared_ptr<otpo::BikePark> bikePark = nullptr;
-  // bikeRentalStation
-
-  // CarPark - To
-  // vehicleParkingWithEntrance -To
 
   otp::VertexType vertexTypeFrom;
   std::shared_ptr<otpo::Stop> stop_place = nullptr;
@@ -544,10 +551,7 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
         gql::response::IdType{gql::response::StringType{stopArg.eva_no_}};
 
     // gtfsId ?? FeedID
-    const std::string gtfsId = "unknown_gtfs_id";
-    // code immer null
-    // plattformCode immer null
-    // zoneID immer null
+    const std::string gtfsId = "unknown_stop_gtfs_id";
     const otp::Mode vehicleMode = getModeFromStation(transport);
 
     // can be pass down like for route and trip
@@ -605,7 +609,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
   fbb.create_and_finish(
       MsgContent_TripId,
       CreateTripId(
-          fbb, fbb.CreateString(""),
+          fbb, fbb.CreateString(tripJourneyArg.extern_trip_.id_),
           fbb.CreateString(tripJourneyArg.extern_trip_.station_id_),
           tripJourneyArg.extern_trip_.train_nr_,
           tripJourneyArg.extern_trip_.time_,
@@ -619,7 +623,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
   auto const con = motis_content(Connection, res->val());
   auto journey = motis::convert(con);
 
-  auto id_trip = gql::response::IdType("unknown_id");
+  auto id_trip = gql::response::IdType(gql::response::StringType{tripJourneyArg.extern_trip_.id_});
   const std::string gtfs_id_trip;
   const std::string trip_headsign = transport.direction_;
 
@@ -640,7 +644,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
     auto const lat = stop_iter.lat_;
     auto const lon = stop_iter.lng_;
     // gtfsId ?? FeedID
-    const std::string gtfsId = "unknown_gtfs_id";
+    const std::string gtfsId = "unknown_pattern_gtfs_id";
     otp::Mode mode;  // might have problem hier
     auto alerts = alertsArg;
     stops_pattern.push_back(std::make_shared<otpo::Stop>(std::make_shared<stop>(
@@ -679,8 +683,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
   }
   /////// End Stoptime
 
-  ////// the parameter is the date given but the stoptime give back doesn't
-  /// match anything
+  ////// the parameter is the date given but the stoptime give back doesn't match anything
   auto stoptimes_for_date_trip = std::vector<std::shared_ptr<otpo::Stoptime>>{};
 
   return std::make_shared<otpo::Trip>(std::make_shared<trip>(
@@ -695,9 +698,9 @@ std::shared_ptr<otpo::Route> CreateRouteWithTransport(
     const journey::transport& transport) {
 
   std::string color = "";  // don't have info
-  std::string gtfsId = "unknown_gtfs_id";  // don't have info
+  std::string gtfsId = "unknown_route_gtfs_id";  // don't have info
   auto id =
-      gql::response::IdType{gql::response::StringType{"unknown_id"}};  // don't have info
+      gql::response::IdType{gql::response::StringType{"unknown_route_id"}};  // don't have info
   std::string longName = transport.name_;
   std::string shortName = transport.name_;
 
@@ -861,10 +864,10 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
     std::shared_ptr<otpo::Agency> agc_ = nullptr;
     if (!tran.is_walk_) {
       auto agency_id =
-          gql::response::IdType(gql::response::StringType{"unknown_id"});
-      std::string agency_gtfs_id = "1";
+          gql::response::IdType(gql::response::StringType{"unknown_agency_id"});
+      std::string agency_gtfs_id = "unknown_agency_gtfs_id";
       std::string agency_name = tran.provider_;
-      std::string agency_url = "1";
+      std::string agency_url = "unknown_agency_url";
       agc_ = std::make_shared<otpo::Agency>(std::make_shared<agency>(
           std::move(agency_id), std::move(agency_gtfs_id),
           std::move(agency_name), std::move(agency_url)));
