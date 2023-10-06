@@ -24,6 +24,7 @@
 #include "otp/TripObject.h"
 #include "otp/debugOutputObject.h"
 #include "otp/otpSchema.h"
+#include "otp/serviceTimeRangeObject.h"
 
 namespace mm = motis::module;
 namespace fbb = flatbuffers;
@@ -47,6 +48,18 @@ using Boolean = gql::response::BooleanType;
 using Long = gql::response::IntType;
 using Int = gql::response::IntType;
 
+struct service_time_range {
+  explicit service_time_range(const int&& startArg, const int&& endArg) {
+    start_ = gql::response::Value{startArg};
+    end_ = gql::response::Value{endArg};
+  }
+  std::optional<gql::response::Value> getStart() const noexcept {
+    return start_;
+  }
+  std::optional<gql::response::Value> getEnd() const noexcept { return end_; }
+  std::optional<gql::response::Value> start_;
+  std::optional<gql::response::Value> end_;
+};
 struct pattern {
   explicit pattern(
       gql::response::IdType&& idArg,
@@ -260,7 +273,9 @@ struct stop {
 
   gql::response::IdType getId() const noexcept { return id_; };
   std::string getGtfsId() const noexcept { return gtfs_id; };
-  std::string getName() const noexcept { return name_; };
+  std::string getName(std::optional<std::string>&& languageArg) const noexcept {
+    return name_;
+  };
   std::optional<double> getLat() const noexcept { return lat_; };
   std::optional<double> getLon() const noexcept { return lon_; };
   std::optional<std::string> getCode() const noexcept { return code_; };
@@ -369,7 +384,7 @@ struct leg {
                    intermediatePlacesArg,
                const std::optional<bool>&& realtimeArg,
                const std::optional<bool>&& transitLegArg, int startTimeArg,
-               const std::optional<int>&& departureDelayArg,
+               int endTimeArg, const std::optional<int>&& departureDelayArg,
                const std::optional<int>&& arrivalDelayArg,
                const std::optional<bool>&& interlineWithPreviousLegArg,
                const std::optional<double>&& distanceArg,
@@ -386,6 +401,7 @@ struct leg {
     realtime_ = realtimeArg;
     transit_leg = transitLegArg;
     start_time = gql::response::Value{startTimeArg};
+    end_time = gql::response::Value{endTimeArg};
     departure_delay = departureDelayArg;
     arrival_delay = arrivalDelayArg;
     interline_with_previous_leg = interlineWithPreviousLegArg;
@@ -397,6 +413,9 @@ struct leg {
   }
 
   std::optional<gql::response::Value> getStartTime() const noexcept {
+    return start_time;
+  };
+  std::optional<gql::response::Value> getEndTime() const noexcept {
     return start_time;
   };
   std::optional<int> getDepartureDelay() const noexcept {
@@ -453,6 +472,7 @@ struct leg {
   /* Whether this leg is traversed with a rented bike. */
   std::optional<bool> rented_bike;
   std::optional<gql::response::Value> start_time;
+  std::optional<gql::response::Value> end_time;
   std::optional<int> departure_delay;
   std::optional<int> arrival_delay;
   std::optional<bool> interline_with_previous_leg;
@@ -756,11 +776,9 @@ std::shared_ptr<otpo::Route> CreateRouteWithTransport(
   ;
 }
 
-const OSRMViaRouteResponse* caculateDistanceViaOSRM(double start_lat,
-                                                    double start_lon,
-                                                    double dest_lat,
-                                                    double dest_lon,
-                                                    std::string const profile) {
+const std::shared_ptr<motis::module::message> caculateDistanceViaOSRM(
+    double start_lat, double start_lon, double dest_lat, double dest_lon,
+    std::string const profile) {
   auto const waypoints =
       std::vector<Position>{{start_lat, start_lon}, {dest_lat, dest_lon}};
 
@@ -774,9 +792,9 @@ const OSRMViaRouteResponse* caculateDistanceViaOSRM(double start_lat,
 
   auto const response = motis_call(make_msg(mc));
   auto const osrm_msg = response->val();
-  auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
+  //  auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
 
-  return osrm_resp;
+  return osrm_msg;
 }
 
 const journey::trip& GetJourneyTripAccordingToTransport(
@@ -797,8 +815,9 @@ geo::polyline convertCoordVectorToPolyline(
 
   geo::polyline polyline;
   // Still has segmentation fault sometimes ????
-  //  std::cout << "coord_size: " << coords->size() << std::endl;
+  std::cout << "coord_size: " << coords->size() << std::endl;
   for (size_t i = 0; i < coords->size(); i++) {
+    //    std::cout << "coord: " << coords->operator[](i) << std::endl;
     if (i % 2 == 0) {
       lat_ = coords->Get(i);
     } else {
@@ -844,8 +863,9 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
     geo::polyline polyline_leggeo;
 
     if (tran.is_walk_) {
-      auto const osrm_res = caculateDistanceViaOSRM(
+      auto const osrm_msg = caculateDistanceViaOSRM(
           stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, "foot");
+      auto const osrm_res = motis_content(OSRMViaRouteResponse, osrm_msg);
       distance_ = osrm_res->distance();
 
       //      std::cout << "size:" <<
@@ -858,8 +878,9 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
       polyline_leggeo =
           convertCoordVectorToPolyline(osrm_res->polyline()->coordinates());
     } else if (mode == otp::Mode::BUS) {
-      auto const osrm_res = caculateDistanceViaOSRM(
+      auto const osrm_msg = caculateDistanceViaOSRM(
           stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, "bus");
+      auto const osrm_res = motis_content(OSRMViaRouteResponse, osrm_msg);
       distance_ = osrm_res->distance();
 
       //      std::cout << "size:" <<
@@ -942,9 +963,9 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
     auto const l = std::make_shared<leg>(
         mode, std::move(agc_), std::move(from), std::move(to),
         std::move(leggeo), std::move(intermediatePlaces), real_time,
-        transit_leg, start_time_leg, departure_delay, arrival_delay,
-        interlineWithPreviousLeg, distance_, duration_leg, intermediatePlace,
-        std::move(route_), std::move(trip_));
+        transit_leg, start_time_leg, end_time_leg, departure_delay,
+        arrival_delay, interlineWithPreviousLeg, distance_, duration_leg,
+        intermediatePlace, std::move(route_), std::move(trip_));
     auto const otpLeg = std::make_shared<otpo::Leg>(l);
 
     legs.push_back(otpLeg);
@@ -1159,13 +1180,21 @@ struct Query {
         std::move(dateArg), std::move(timeArg), std::move(fromPlaceArg),
         std::move(toPlaceArg), std::move(numItinerariesArg)));
   }
+
+  std::shared_ptr<otpo::QueryType> getViewer() const noexcept {
+    return std::make_shared<otpo::QueryType>(std::make_shared<Query>());
+  };
+  std::shared_ptr<otpo::serviceTimeRange> getServiceTimeRange() const noexcept {
+    return std::make_shared<otpo::serviceTimeRange>(
+        std::make_shared<service_time_range>(1, 2));
+  }
 };
 
 graphql::graphql() : module("GraphQL", "graphql") {}
 
 void graphql::init(motis::module::registry& reg) {
   reg.register_op(
-      "/graphql",
+      "/index/graphql",
       [](mm::msg_ptr const& msg) {
         auto const req = motis_content(HTTPRequest, msg);
 
