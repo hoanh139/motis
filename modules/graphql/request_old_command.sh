@@ -59,5 +59,5 @@ curl -X POST -d '{
   	"wheelchair": false
   }
 }\n
-\n' http://localhost:8080/graphql
+\n' http://localhost:8080/index/graphql
 

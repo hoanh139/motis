@@ -1203,6 +1203,7 @@ void graphql::init(motis::module::registry& reg) {
 
         auto payload = gql::response::parseJSON(req->content()->str());
         auto variablesItr = payload.find("variables"sv);
+        //        std::cout << "Content:" << req->content()->str() << std::endl;
         if (variablesItr == payload.end() ||
             variablesItr->second.type() != gql::response::Type::Map) {
           throw std::runtime_error{"variables missing"};
