@@ -40,6 +40,9 @@ using namespace motis::osrm;
 using namespace motis::ppr;
 using namespace geo;
 
+//geocoding
+using namespace motis::guesser;
+
 namespace motis::graphql {
 
 using String = gql::response::StringType;
@@ -559,7 +562,7 @@ otp::Mode getModeFromStation(const journey::transport& tran) {
 }
 
 std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
-    const journey::stop& stopArg, const journey::transport& transport) {
+    const journey::stop& stopArg, const journey::transport& transport, const std::string& feedId) {
   const double lat = stopArg.lat_;
   const double lon = stopArg.lng_;
 
@@ -579,7 +582,7 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
         gql::response::IdType{gql::response::StringType{stopArg.eva_no_}};
 
     // gtfsId ?? FeedID
-    const std::string gtfsId = "unknown_stop_gtfs_id";
+    const std::string gtfsId = feedId + ":" + stopArg.eva_no_;
     const otp::Mode vehicleMode = getModeFromStation(transport);
 
     // can be pass down like for route and trip
@@ -631,7 +634,7 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 std::shared_ptr<otpo::Trip> CreateTripWithTransport(
     const std::vector<std::shared_ptr<otpo::Alert>>& alertsArg,
     const std::shared_ptr<otpo::Route>& routeArg,
-    const journey::transport& transport, const journey::trip& tripJourneyArg) {
+    const journey::transport& transport, const journey::trip& tripJourneyArg, const std::string& feedId) {
 
   mm::message_creator fbb;
   fbb.create_and_finish(
@@ -672,8 +675,8 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
     auto const stopName = stop_iter.name_;
     auto const lat = stop_iter.lat_;
     auto const lon = stop_iter.lng_;
-    // gtfsId ?? FeedID
-    const std::string gtfsId = "unknown_pattern_gtfs_id";
+    // gtfsId
+    const std::string gtfsId = feedId+":"+stop_iter.eva_no_;
     otp::Mode mode;  // might have problem hier
     auto alerts = alertsArg;
     stops_pattern.push_back(std::make_shared<otpo::Stop>(std::make_shared<stop>(
@@ -725,10 +728,11 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
 std::shared_ptr<otpo::Route> CreateRouteWithTransport(
     const std::shared_ptr<otpo::Agency>& agency,
     const std::vector<std::shared_ptr<otpo::Alert>>& alerts,
-    const journey::transport& transport) {
+    const journey::transport& transport,
+    const std::string& feedId) {
 
   std::string color = "";  // don't have info
-  std::string gtfsId = "unknown_route_gtfs_id";  // don't have info
+  std::string gtfsId = feedId+":"+"unknown_route_id";
   auto id = gql::response::IdType{
       gql::response::StringType{"unknown_route_id"}};  // don't have info
   std::string longName = transport.name_;
@@ -792,7 +796,6 @@ const std::shared_ptr<motis::module::message> caculateDistanceViaOSRM(
 
   auto const response = motis_call(make_msg(mc));
   auto const osrm_msg = response->val();
-  //  auto const osrm_resp = motis_content(OSRMViaRouteResponse, osrm_msg);
 
   return osrm_msg;
 }
@@ -814,10 +817,7 @@ geo::polyline convertCoordVectorToPolyline(
   double lon_ = 0;
 
   geo::polyline polyline;
-  // Still has segmentation fault sometimes ????
-  std::cout << "coord_size: " << coords->size() << std::endl;
   for (size_t i = 0; i < coords->size(); i++) {
-    //    std::cout << "coord: " << coords->operator[](i) << std::endl;
     if (i % 2 == 0) {
       lat_ = coords->Get(i);
     } else {
@@ -826,6 +826,15 @@ geo::polyline convertCoordVectorToPolyline(
     }
   }
   return polyline;
+}
+
+std::string getFeedID(const std::string& idArg){
+  std::stringstream ss(idArg);
+  std::string str;
+
+  getline(ss, str, '_');
+
+  return str;
 }
 
 std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
@@ -858,6 +867,9 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
 
     auto const duration_leg = tran.duration_;
 
+    //Get FeedID
+    auto const feedId = getFeedID(stop_from.eva_no_);
+
     // create osrm for geometry and distance
     double distance_ = 0;
     geo::polyline polyline_leggeo;
@@ -867,14 +879,6 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
           stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, "foot");
       auto const osrm_res = motis_content(OSRMViaRouteResponse, osrm_msg);
       distance_ = osrm_res->distance();
-
-      //      std::cout << "size:" <<
-      //      osrm_res->polyline()->coordinates()->size()
-      //                << std::endl;
-      //      for (auto iter : *osrm_res->polyline()->coordinates()) {
-      //        std::cout << "vec:" << iter << std::endl;
-      //      }
-
       polyline_leggeo =
           convertCoordVectorToPolyline(osrm_res->polyline()->coordinates());
     } else if (mode == otp::Mode::BUS) {
@@ -882,14 +886,6 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
           stop_from.lat_, stop_from.lng_, stop_to.lat_, stop_to.lng_, "bus");
       auto const osrm_res = motis_content(OSRMViaRouteResponse, osrm_msg);
       distance_ = osrm_res->distance();
-
-      //      std::cout << "size:" <<
-      //      osrm_res->polyline()->coordinates()->size()
-      //                << std::endl;
-      //      for (auto iter : *osrm_res->polyline()->coordinates()) {
-      //        std::cout << "vec:" << iter << std::endl;
-      //      }
-
       polyline_leggeo =
           convertCoordVectorToPolyline(osrm_res->polyline()->coordinates());
     } else {
@@ -916,7 +912,7 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
     if (!tran.is_walk_) {
       auto agency_id =
           gql::response::IdType(gql::response::StringType{"unknown_agency_id"});
-      std::string agency_gtfs_id = "unknown_agency_gtfs_id";
+      std::string agency_gtfs_id = feedId + ':' + "unknown_agency_id";
       std::string agency_name = tran.provider_;
       std::string agency_url = "unknown_agency_url";
       agc_ = std::make_shared<otpo::Agency>(std::make_shared<agency>(
@@ -935,25 +931,25 @@ std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
         std::vector<std::shared_ptr<otpo::Alert>>{};  // immer leer ??
 
     auto const from =
-        CreatePlaceWithTransport(journey.stops_.at(tran.from_), tran);
+        CreatePlaceWithTransport(journey.stops_.at(tran.from_), tran, feedId);
 
-    auto const to = CreatePlaceWithTransport(journey.stops_.at(tran.to_), tran);
+    auto const to = CreatePlaceWithTransport(journey.stops_.at(tran.to_), tran, feedId);
 
     std::shared_ptr<otpo::Route> route_ = nullptr;
     std::shared_ptr<otpo::Trip> trip_ = nullptr;
     if (!tran.is_walk_) {
       // route
-      route_ = CreateRouteWithTransport(agc_, alerts, tran);
+      route_ = CreateRouteWithTransport(agc_, alerts, tran, feedId);
       // trip
       auto jn_trip = GetJourneyTripAccordingToTransport(tran, journey.trips_);
-      trip_ = CreateTripWithTransport(alerts, route_, tran, jn_trip);
+      trip_ = CreateTripWithTransport(alerts, route_, tran, jn_trip, feedId);
     }
 
     std::vector<std::shared_ptr<otpo::Place>> intermediatePlaces;
     if (!tran.is_walk_) {
       for (size_t count = tran.from_ + 1; count < tran.to_; count++) {
         intermediatePlaces.push_back(
-            CreatePlaceWithTransport(journey.stops_.at(count), tran));
+            CreatePlaceWithTransport(journey.stops_.at(count), tran, feedId));
       }
     }
 
@@ -1241,4 +1237,172 @@ void graphql::init(motis::module::registry& reg) {
       {});
 }
 
+struct geometry_geocoding{
+  std::tuple<double, double> coordinates_;
+  std::string type_;
+};
+struct properties_geocoding_osm{
+/*
+  "osm_id": 188238154,
+ "extent": [
+      8.8566132,
+      48.5978695,
+      8.8567463,
+      48.5977943
+  ],
+  "country": "Deutschland",
+  "city": "Herrenberg",
+  "countrycode": "DE",
+  "county": "Landkreis Böblingen",
+  "type": "house",
+  "osm_type": "W",
+  "osm_key": "building",
+  "housenumber": "1",
+  "street": "Belchenstraße",
+  "district": "Affstätt",
+  "osm_value": "yes",
+  "region": "Baden-Württemberg",
+  "postalcode": "71083",
+  "locality": "Herrenberg",
+  "label": "Belchenstraße 1, 71083 Herrenberg",
+  "name": "Belchenstraße 1, 71083 Herrenberg",
+  "layer": "venue",
+  "confidence": 1,
+  "source": "openstreetmap"*/
+
+};
+struct properties_geocoding_digi {
+  explicit properties_geocoding_digi(const std::string& idArg,
+                                     const std::string& gidArg,
+                                     const std::string& layerArg,
+                                     const std::string& sourceArg,
+                                     const std::string& source_idArg,
+                                     const std::string& nameArg,
+                                     const std::string& postalcodeArg,
+                                     const std::string& postalcode_gidArg,
+                                     const int& confidenceArg,
+                                     const int& distanceArg,
+                                     const std::string& accuracyArg,
+                                     const std::string& countryArg,
+                                     const std::string& country_gidArg,
+                                     const std::string& country_aArg,
+                                     const std::string& regionArg,
+                                     const std::string& region_gidArg,
+                                     const std::string& localadminArg,
+                                     const std::string& localadmin_gidArg,
+                                     const std::string& localityArg,
+                                     const std::string& locality_gidArg,
+                                     const std::string& neighbourhoodArg,
+                                     const std::string& neighbourhood_gidArg,
+                                     const std::string& labelArg,
+                                     const std::vector<std::string>& zonesArg){
+    id_ = idArg;
+    gid_ = gidArg;
+    layer_ = layerArg;
+    source_ = sourceArg;
+    source_id_ = source_idArg;
+    name_ = nameArg;
+    postalcode_ = postalcodeArg;
+    postalcode_gid_ = postalcode_gidArg;
+    confidence_ = confidenceArg;
+    distance_ = distanceArg;
+    accuracy_ = accuracyArg;
+    country_ = countryArg;
+    country_gid_ = country_gidArg;
+    country_a_ = country_aArg;
+    region_ = regionArg;
+    region_gid_ = region_gidArg;
+    localadmin_ = localadminArg;
+    localadmin_gid_ = localadmin_gidArg;
+    locality_ = localityArg;
+    locality_gid_ = locality_gidArg;
+    neighbourhood_ = neighbourhoodArg;
+    neighbourhood_gid_ = neighbourhood_gidArg;
+    label_ = labelArg;
+    zones_ = std::move(zonesArg);
+  };
+
+  std::string id_;
+  std::string gid_;
+  std::string layer_;
+  std::string source_;
+  std::string source_id_;
+  std::string name_;
+  std::string postalcode_;
+  std::string postalcode_gid_;
+  int confidence_;
+  int distance_;
+  std::string accuracy_;
+  std::string country_;
+  std::string country_gid_;
+  std::string country_a_;
+  std::string region_;
+  std::string region_gid_;
+  std::string localadmin_;
+  std::string localadmin_gid_;
+  std::string locality_;
+  std::string locality_gid_;
+  std::string neighbourhood_;
+  std::string neighbourhood_gid_;
+  std::string label_;
+  std::vector<std::string> zones_;
+};
+
+struct features{
+  geometry_geocoding geo_;
+  std::string type_;
+  properties_geocoding_digi properties_;
+};
+
+void fillInfo(const StationGuesserResponse* station_res){
+
+}
+
+std::shared_ptr<mm::message> geocodingAddressViaPosition(const std::string& msg){
+  // must take variable out of the req
+  const std::string point_lat = "48.60374409506935";
+  const std::string point_lon = "8.879184722900392";
+  auto radius = 0.1;
+  auto lang = "de";
+  auto size = 1;
+  auto layers = "address";
+  auto zones = 1;
+
+  std::string input = point_lat+";"+point_lon;
+  mm::message_creator mc;
+  mc.create_and_finish(
+      MsgContent_StationGuesserRequest,
+      CreateStationGuesserRequest(
+          mc, size, mc.CreateString(input))
+          .Union(),
+      "/guesser");
+  auto const response = motis_call(make_msg(mc));
+  auto const res = response->val();
+  return res;
+}
+
+//geocoding
+void TryForGeocoding(motis::module::registry& reg) {
+  reg.register_op(
+      "/geocoding",
+      [](mm::msg_ptr const& msg) {
+        auto const req = motis_content(HTTPRequest, msg);
+
+        auto response = req->content()->str();
+        auto station_msg = geocodingAddressViaPosition(req->content()->str());
+        auto const station_res = motis_content(StationGuesserResponse, station_msg);
+
+
+        mm::message_creator mc;
+        mc.create_and_finish(
+            MsgContent_HTTPResponse,
+            CreateHTTPResponse(
+                mc, HTTPStatus_OK,
+                mc.CreateVector(std::vector<fbb::Offset<HTTPHeader>>{}),
+                mc.CreateString(response))
+                .Union());
+        return make_msg(mc);
+      },
+      {});
+}
 }  // namespace motis::graphql
