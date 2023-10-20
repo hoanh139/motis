@@ -1194,13 +1194,22 @@ void graphql::init(motis::module::registry& reg) {
       "/index/graphql",
       [](mm::msg_ptr const& msg) {
         auto const req = motis_content(HTTPRequest, msg);
-
+        //        std::string response;
+        //        if (req->method() == HTTPMethod::HTTPMethod_OPTIONS) {
+        //          response =
+        //              "HTTP/1.1 204 No Content\n"
+        //              "Allow: OPTIONS, GET, HEAD, POST\n"
+        //              "Cache-Control: max-age=604800\n"
+        //              "Date: Fri, 13 Oct 2023 13:06:00 GMT\n"
+        //              "Server: localhost";
+        //        } else {
         std::shared_ptr<gql::service::Request> service =
             std::make_shared<otp::Operations>(std::make_shared<Query>());
 
         auto payload = gql::response::parseJSON(req->content()->str());
         auto variablesItr = payload.find("variables"sv);
-        //        std::cout << "Content:" << req->content()->str() << std::endl;
+        //        std::cout << "Content:" << req->content()->str() <<
+        //        std::endl;
         if (variablesItr == payload.end() ||
             variablesItr->second.type() != gql::response::Type::Map) {
           throw std::runtime_error{"variables missing"};
@@ -1224,7 +1233,7 @@ void graphql::init(motis::module::registry& reg) {
                            .operationName = "GetPlan"sv,
                            .variables = std::move(variables)})
                 .get());
-
+        //        }
         mm::message_creator mc;
         mc.create_and_finish(
             MsgContent_HTTPResponse,
