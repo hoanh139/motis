@@ -37,27 +37,18 @@ struct geometry_geocoding {
 };
 
 struct properties_geocoding_osm {
-  explicit properties_geocoding_osm(const std::string& osmIdArg,
-                                    const std::string& extentArg,
-                                    const std::string& countryArg,
-                                    const std::string& cityArg,
-                                    const std::string& countrycodeArg,
-                                    const std::string& countyArg,
-                                    const std::string& typeArg,
-                                    const std::string& osm_typeArg,
-                                    const std::string& osm_keyArg,
-                                    const std::string& housenumberArg,
-                                    const std::string& streetArg,
-                                    const std::string& districtArg,
-                                    const std::string& osm_valueArg,
-                                    const std::string& regionArg,
-                                    const std::string& postalcodeArg,
-                                    const std::string& localityArg,
-                                    const std::string& labelArg,
-                                    const std::string& nameArg,
-                                    const std::string& layerArg,
-                                    const int& confidenceArg,
-                                    const std::string& sourceArg){
+  explicit properties_geocoding_osm(
+      const std::string& osmIdArg, const std::string& extentArg,
+      const std::string& countryArg, const std::string& cityArg,
+      const std::string& countrycodeArg, const std::string& countyArg,
+      const std::string& typeArg, const std::string& osm_typeArg,
+      const std::string& osm_keyArg, const std::string& housenumberArg,
+      const std::string& streetArg, const std::string& districtArg,
+      const std::string& osm_valueArg, const std::string& regionArg,
+      const std::string& postalcodeArg, const std::string& localityArg,
+      const std::string& labelArg, const std::string& nameArg,
+      const std::string& layerArg, const int& confidenceArg,
+      const std::string& sourceArg) {
     osm_id_ = osmIdArg;
     extent_ = extentArg;
     country_ = countryArg;
@@ -153,8 +144,9 @@ struct properties_geocoding_osm {
 };
 
 struct properties_geocoding_digi {
-  explicit properties_geocoding_digi(const std::string& idArg, const std::string& gidArg,
-                            const std::string& layerArg){
+  explicit properties_geocoding_digi(const std::string& idArg,
+                                     const std::string& gidArg,
+                                     const std::string& layerArg) {
     id_ = idArg;
     gid_ = gidArg;
     layer_ = layerArg;
@@ -282,11 +274,11 @@ struct properties_geocoding_digi {
 
 template <class T>
 struct features {
-  explicit features(
-      const geometry_geocoding& geoArg,const std::string& typeArg,
-      const T& propertiesArg):  geo_(std::move(geoArg)),
-                                                        type_ (std::move(typeArg)),
-                                                        properties(std::move(propertiesArg)){};
+  explicit features(const geometry_geocoding& geoArg,
+                    const std::string& typeArg, const T& propertiesArg)
+      : geo_(std::move(geoArg)),
+        type_(std::move(typeArg)),
+        properties(std::move(propertiesArg)){};
 
   void from_json(const nh::json& j, features& val) {
     nh::json geoJson = j.at("geometry");
@@ -318,7 +310,7 @@ struct features {
 
 void fillInfo(const StationGuesserResponse* station_res) {}
 
-std::shared_ptr<mm::message> geocodingAddressViaPosition(
+std::vector<features<properties_geocoding_osm>> geocodingAddressViaPosition(
     const std::string& msg) {
   // must take variable out of the req
   const std::string point_lat = "48.60374409506935";
@@ -343,67 +335,74 @@ std::shared_ptr<mm::message> geocodingAddressViaPosition(
   auto const station_guesse = *station_res->guesses()->begin();
   mc.create_and_finish(
       MsgContent_AddressRequest,
-      CreateAddressRequest(mc, mc.CreateString(station_guesse->name()))
-          .Union(),
+      CreateAddressRequest(mc, mc.CreateString(station_guesse->name())).Union(),
       "/address");
   auto const a_response = motis_call(make_msg(mc));
   auto const a_res_val = a_response->val();
 
   auto const address_res = motis_content(AddressResponse, a_res_val);
-  for(auto const a : *address_res->guesses()){
-    properties_geocoding_osm properties (station_guesse->id()->str(),
-        "unknown_extentArg","countryArg",
-    "cityArg",
-    "countrycodeArg",
-                             "countyArg",a->type()->str(),
-                             "osm_typeArg",
-                             "osm_keyArg",
-                             "housenumberArg",
-                             "streetArg",
-                             "districtArg",
-                             "osm_valueArg",
-                             "regionArg",
-                             "postalcodeArg",
-                             "localityArg",
-                             "labelArg",
-                             "nameArg",
-                             "layerArg",
-                             1,"sourceArg");
-    geometry_geocoding ge(a->pos()->lat(), a->pos()->lng(), a->type()->str());
-    features<properties_geocoding_osm> f1(ge, a->type()->str(), properties);
+
+  std::vector<features<properties_geocoding_osm>> features_vec;
+  for (auto const a : *address_res->guesses()) {
+    properties_geocoding_osm properties(
+        station_guesse->id()->str(), "unknown_extentArg", "countryArg",
+        "cityArg", "countrycodeArg", "countyArg", a->type()->str(),
+        "osm_typeArg", "osm_keyArg", "housenumberArg", "streetArg",
+        "districtArg", "osm_valueArg", "regionArg", "postalcodeArg",
+        "localityArg", "labelArg", "nameArg", "layerArg", 1, "sourceArg");
+    geometry_geocoding geometry(a->pos()->lat(), a->pos()->lng(),
+                                a->type()->str());
+    features<properties_geocoding_osm> feature(geometry, a->type()->str(),
+                                               properties);
+    features_vec.push_back(feature);
   }
 
-//  return res_val;
+  return features_vec;
 }
 
 void geocoding::init(motis::module::registry& reg) {
   reg.register_op(
       "/geocoding/reverse",
       [](mm::msg_ptr const& msg) {
+        std::cout << msg->to_string() << std::endl;
+        std::cout << msg->get()->content_type() << std::endl;
+
         auto const req = motis_content(HTTPRequest, msg);
+
         std::cout << req->path()->str() << std::endl;
+        for (auto const& h : *req->headers()) {
+          std::cout << h->name() << ": " << h->value() << std::endl;
+        }
         //        auto response = req->content()->str();
-        //        auto station_msg = geocodingAddressViaPosition(req->content()->str()); auto const station_res =
+        //        auto station_msg =
+        //        geocodingAddressViaPosition(req->content()->str()); auto const
+        //        station_res =
         //            motis_content(StationGuesserResponse, station_msg);
 
+        //        std::cout << req->path()->str() << std::endl;
+        //        auto response = req->content()->str();
+        //        auto station_msg =
+        //        geocodingAddressViaPosition(req->content()->str()); auto const
+        //        station_res =
+        //            motis_content(StationGuesserResponse, station_msg);
 
-        std::vector<features<properties_geocoding_digi>> features_vec;
-        properties_geocoding_digi pr("id", "gid", "layer");
-        geometry_geocoding ge(1.0, 1.0, "type");
-        features f1(ge, "saooo", pr);
-
-        features_vec.push_back(f1);
-
-        nh::json jsonArray = nh::json::array();
-
-        for (auto feature : features_vec) {
-          nh::json featureJson;
-          feature.to_json(featureJson, feature);
-          jsonArray.push_back(featureJson);
-        }
-
-        nh::json jsonObject;
-        jsonObject["features"] = jsonArray;
+        //        std::vector<features<properties_geocoding_digi>> features_vec;
+        //        properties_geocoding_digi pr("id", "gid", "layer");
+        //        geometry_geocoding ge(1.0, 1.0, "type");
+        //        features f1(ge, "saooo", pr);
+        //
+        //        features_vec.push_back(f1);
+        //
+        //        nh::json jsonArray = nh::json::array();
+        //
+        //        for (auto feature : features_vec) {
+        //          nh::json featureJson;
+        //          feature.to_json(featureJson, feature);
+        //          jsonArray.push_back(featureJson);
+        //        }
+        //
+        //        nh::json jsonObject;
+        //        jsonObject["features"] = jsonArray;
 
         auto from =
             "{\n"
@@ -491,9 +490,6 @@ void geocoding::init(motis::module::registry& reg) {
           MsgSend = from;
           changeAtr = !changeAtr;
         }
-
-//        MsgSend = jsonObject.dump();
-
         mm::message_creator mc;
         mc.create_and_finish(
             MsgContent_HTTPResponse,

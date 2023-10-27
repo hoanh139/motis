@@ -570,12 +570,12 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 
   auto const arrivalTime = stopArg.arrival_.timestamp_;
 
-  otp::VertexType vertexTypeFrom;
+  otp::VertexType vertexType;
   std::shared_ptr<otpo::Stop> stop_place = nullptr;
   if (stopName == "START" || stopName == "END") {
-    vertexTypeFrom = otp::VertexType::NORMAL;
+    vertexType = otp::VertexType::NORMAL;
   } else {
-    vertexTypeFrom = otp::VertexType::TRANSIT;
+    vertexType = otp::VertexType::TRANSIT;
 
     ////// Create stop
     auto stopID =
@@ -594,42 +594,9 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
     ////// End stop
   }
   return std::make_shared<otpo::Place>(
-      std::make_shared<place>(lat, lon, stopName, std::move(vertexTypeFrom),
+      std::make_shared<place>(lat, lon, stopName, std::move(vertexType),
                               arrivalTime, std::move(stop_place)));
 }
-
-// double caculateWalkingDistance(double start_lat, double start_lon,
-//                                double dest_lat, double dest_lon) {
-//   Position const start_pos{start_lat, start_lon};
-//
-//   mm::message_creator mc;
-//
-//   mc.create_and_finish(
-//       MsgContent_FootRoutingRequest,
-//       CreateFootRoutingRequest(
-//           mc, &start_pos,
-//           mc.CreateVectorOfStructs(
-//               std::vector<Position>{Position(dest_lat, dest_lon)}),
-//           ppr::CreateSearchOptions(mc, mc.CreateString("default"), 1000),
-//           SearchDir::SearchDir_Forward, false, false, false)
-//           .Union(),
-//       "/ppr/route");
-//
-//   auto const response = motis_call(make_msg(mc));
-//   auto const osrm_msg = response->val();
-//
-//   auto const ppr_resp = motis_content(FootRoutingResponse, osrm_msg);
-//
-//   auto const routes = ppr_resp->routes();
-//
-//   if (routes->size() > 0) {
-//     auto const route = routes->Get(0)->routes()->Get(0);
-//     auto const dist = route->distance();
-//     return dist;
-//   }
-//
-//   return 0;
-// }
 
 std::shared_ptr<otpo::Trip> CreateTripWithTransport(
     const std::vector<std::shared_ptr<otpo::Alert>>& alertsArg,
@@ -731,8 +698,8 @@ std::shared_ptr<otpo::Route> CreateRouteWithTransport(
     const std::vector<std::shared_ptr<otpo::Alert>>& alerts,
     const journey::transport& transport, const std::string& feedId) {
 
-  std::string color = "";  // don't have info
-  std::string gtfsId = feedId + ":" + "unknown_route_id";
+  std::string color = "FF0000";  // don't have info
+  std::string gtfsId = feedId + ":" + "unknown_route_gtfsid";
   auto id = gql::response::IdType{
       gql::response::StringType{"unknown_route_id"}};  // don't have info
   std::string longName = transport.name_;
@@ -837,7 +804,8 @@ std::string getFeedID(const std::string& idArg) {
   return str;
 }
 
-std::shared_ptr<otpo::Itinerary> createItinerary(const Connection* con) {
+std::shared_ptr<otpo::Itinerary> createItineraryViaConnection(
+    const Connection* con) {
   auto const journey = motis::convert(con);
 
   /////// create other infos
@@ -990,6 +958,82 @@ std::tuple<std::string, double, double> convertStringToCoordinate(
   return std::make_tuple(address_, lat_, lon_);
 }
 
+std::shared_ptr<otpo::Itinerary> createItineraryViaRoute(const ppr::Route* r,
+                                                         const int begin,
+                                                         const otp::Mode mode) {
+
+  /////// create other infos
+  auto const start_time_Itinerary = begin;
+  auto const end_time_Itinerary = begin + r->duration() * 60;
+  auto const duration_Itinerary = r->duration();
+  auto walk_distance_Itinerary = r->distance();
+  auto const fares = std::vector<std::shared_ptr<otpo::fare>>{};
+
+  /////// create legs_Itinerary
+  std::vector<std::shared_ptr<otpo::Leg>> legs;
+
+  auto const stop_from = r->start();
+  auto const stop_to = r->destination();
+
+  auto const start_time_leg = start_time_Itinerary;
+  auto const end_time_leg = end_time_Itinerary;
+  auto const departure_delay = 0;
+  auto const arrival_delay = 0;
+  auto const duration_leg = duration_Itinerary;
+
+  // create osrm for geometry and distance
+  double distance_ = 0;
+  geo::polyline polyline_leggeo;
+
+  auto const osrm_msg =
+      caculateDistanceViaOSRM(stop_from->lat(), stop_from->lng(),
+                              stop_to->lat(), stop_to->lng(), "foot");
+  auto const osrm_res = motis_content(OSRMViaRouteResponse, osrm_msg);
+  distance_ = osrm_res->distance();
+  polyline_leggeo =
+      convertCoordVectorToPolyline(osrm_res->polyline()->coordinates());
+
+  /////// Create Leggeometry
+  auto length_leggeo = polyline_leggeo.size();
+  auto const polyline_leggeo_encoded = geo::encode_polyline(polyline_leggeo);
+  auto const leggeo =
+      std::make_shared<otpo::Geometry>(std::make_shared<geometry>(
+          length_leggeo, std::move(polyline_leggeo_encoded)));
+  /////// End Leggeometry
+
+  std::shared_ptr<otpo::Agency> agc_ = nullptr;
+  auto const real_time = false;
+  bool transit_leg = false;
+
+  auto const from = std::make_shared<otpo::Place>(
+      std::make_shared<place>(stop_from->lat(), stop_from->lng(), "",
+                              otp::VertexType::NORMAL, 0, nullptr));
+
+  auto const to = std::make_shared<otpo::Place>(std::make_shared<place>(
+      stop_to->lat(), stop_to->lng(), "", otp::VertexType::NORMAL, 0, nullptr));
+
+  std::shared_ptr<otpo::Route> route_ = nullptr;
+  std::shared_ptr<otpo::Trip> trip_ = nullptr;
+  std::vector<std::shared_ptr<otpo::Place>> intermediatePlaces{};
+
+  bool intermediatePlace = false;
+  bool interlineWithPreviousLeg = false;
+
+  auto const l = std::make_shared<leg>(
+      mode, std::move(agc_), std::move(from), std::move(to), std::move(leggeo),
+      std::move(intermediatePlaces), real_time, transit_leg, start_time_leg,
+      end_time_leg, departure_delay, arrival_delay, interlineWithPreviousLeg,
+      distance_, duration_leg, intermediatePlace, std::move(route_),
+      std::move(trip_));
+  auto const otpLeg = std::make_shared<otpo::Leg>(l);
+
+  legs.push_back(otpLeg);
+
+  return std::make_shared<otpo::Itinerary>(std::make_shared<itinerary>(
+      start_time_Itinerary, end_time_Itinerary, duration_Itinerary,
+      walk_distance_Itinerary, std::move(legs), std::move(fares)));
+}
+
 int convertTime(const std::string& dateArg, const std::string& timeArg,
                 bool extend = false) {
   std::string time_arg = timeArg;
@@ -1013,12 +1057,93 @@ int convertTime(const std::string& dateArg, const std::string& timeArg,
   return start_unix_time;
 };
 
+std::shared_ptr<mm::message> createIntermodalRouting(
+    const int& begin, const int& end,
+    const std::tuple<std::string, double, double>& fromPos,
+    const std::tuple<std::string, double, double>& toPos,
+    std::optional<int>& numItinerariesArg) {
+  mm::message_creator mc;
+
+  auto const interval = Interval(begin, end);
+
+  auto const start_position =
+      motis::Position{std::get<1>(fromPos), std::get<2>(fromPos)};
+  auto const imd_start = intermodal::CreateIntermodalPretripStart(
+                             mc, &start_position, &interval,
+                             numItinerariesArg.value_or(3), true, true)
+                             .Union();
+  auto const imd_start_modes = mc.CreateVector(
+      std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
+          intermodal::CreateModeWrapper(
+              mc, intermodal::Mode::Mode_FootPPR,
+              intermodal::CreateFootPPR(
+                  mc, motis::ppr::CreateSearchOptions(
+                          mc, mc.CreateString("default"), 900))
+                  .Union())});
+  auto dest = intermodal::CreateInputPosition(mc, std::get<1>(toPos),
+                                              std::get<2>(toPos))
+                  .Union();
+  auto const dest_modes = mc.CreateVector(
+      std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
+          intermodal::CreateModeWrapper(
+              mc, intermodal::Mode::Mode_FootPPR,
+              intermodal::CreateFootPPR(
+                  mc, motis::ppr::CreateSearchOptions(
+                          mc, mc.CreateString("default"), 900))
+                  .Union())});
+
+  mc.create_and_finish(
+      MsgContent_IntermodalRoutingRequest,
+      intermodal::CreateIntermodalRoutingRequest(
+          mc, intermodal::IntermodalStart_IntermodalPretripStart, imd_start,
+          imd_start_modes,
+          intermodal::IntermodalDestination::
+              IntermodalDestination_InputPosition,
+          dest, dest_modes, motis::routing::SearchType_Default,
+          motis::SearchDir_Forward, mc.CreateString(""))
+          .Union(),
+      "/intermodal");
+  // Response Handle
+  auto const response = motis_call(make_msg(mc));
+  auto const res_value = response->val();
+
+  return res_value;
+}
+
+std::shared_ptr<mm::message> createPPRRouting(
+    const std::tuple<std::string, double, double>& fromPos,
+    const std::tuple<std::string, double, double>& toPos) {
+  const Position start_pos{std::get<1>(fromPos), std::get<2>(fromPos)};
+
+  //  const Position start_pos{50.758075, 6.105464};
+
+  mm::message_creator mc;
+
+  mc.create_and_finish(
+      MsgContent_FootRoutingRequest,
+      CreateFootRoutingRequest(
+          mc, &start_pos,
+          mc.CreateVectorOfStructs(std::vector<Position>{
+              Position(std::get<1>(toPos), std::get<2>(toPos))}),
+          ppr::CreateSearchOptions(mc, mc.CreateString("default"), 10000),
+          SearchDir::SearchDir_Forward, true, true, true)
+          .Union(),
+      "/ppr/route");
+
+  auto const response = motis_call(make_msg(mc));
+  auto const res_val = response->val();
+  return res_val;
+}
+
 struct plan {
-  explicit plan(std::optional<std::string>&& dateArg,
-                std::optional<std::string>&& timeArg,
-                std::optional<std::string>&& fromPlaceArg,
-                std::optional<std::string>&& toPlaceArg,
-                std::optional<int>&& numItinerariesArg) {
+  explicit plan(
+      std::optional<std::string>&& dateArg,
+      std::optional<std::string>&& timeArg,
+      std::optional<std::string>&& fromPlaceArg,
+      std::optional<std::string>&& toPlaceArg,
+      std::optional<int>&& numItinerariesArg,
+      std::optional<std::vector<std::unique_ptr<otp::TransportMode>>>&&
+          transportModesArg) {
 
     // Create Intermodal Routing Request
     mm::message_creator mc;
@@ -1029,60 +1154,42 @@ struct plan {
     auto const fromPos = convertStringToCoordinate(fromPlaceArg.value());
     auto const toPos = convertStringToCoordinate(toPlaceArg.value());
 
-    auto const interval = Interval(begin, end);
+    if ((transportModesArg.value().size() == 1) &&
+        (*transportModesArg.value().begin())->mode == otp::Mode::WALK) {
+      auto ppr_msg = createPPRRouting(fromPos, toPos);
+      auto const ppr_res = motis_content(FootRoutingResponse, ppr_msg);
+      for (auto r : *ppr_res->routes()->begin()->routes()) {
+        itineraries_.push_back(
+            createItineraryViaRoute(r, begin, otp::Mode::WALK));
+      }
+    } else if ((transportModesArg.value().size() == 1) &&
+               (*transportModesArg.value().begin())->mode ==
+                   otp::Mode::BICYCLE) {
+      auto ppr_msg = createPPRRouting(fromPos, toPos);
+      auto const ppr_res = motis_content(FootRoutingResponse, ppr_msg);
+      auto re = *ppr_res->routes()->begin()->routes();
+      for (auto r : *ppr_res->routes()->begin()->routes()) {
+        itineraries_.push_back(
+            createItineraryViaRoute(r, begin, otp::Mode::BICYCLE));
+      }
+    } else {
+      // itinerary init via intermodal routing
+      auto intermodal_msg = createIntermodalRouting(begin, end, fromPos, toPos,
+                                                    numItinerariesArg);
 
-    auto const start_position =
-        motis::Position{std::get<1>(fromPos), std::get<2>(fromPos)};
-    auto const imd_start = intermodal::CreateIntermodalPretripStart(
-                               mc, &start_position, &interval,
-                               numItinerariesArg.value_or(3), true, true)
-                               .Union();
-    auto const imd_start_modes = mc.CreateVector(
-        std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
-            intermodal::CreateModeWrapper(
-                mc, intermodal::Mode::Mode_FootPPR,
-                intermodal::CreateFootPPR(
-                    mc, motis::ppr::CreateSearchOptions(
-                            mc, mc.CreateString("default"), 900))
-                    .Union())});
-    auto dest = intermodal::CreateInputPosition(mc, std::get<1>(toPos),
-                                                std::get<2>(toPos))
-                    .Union();
-    auto const dest_modes = mc.CreateVector(
-        std::vector<flatbuffers::Offset<motis::intermodal::ModeWrapper>>{
-            intermodal::CreateModeWrapper(
-                mc, intermodal::Mode::Mode_FootPPR,
-                intermodal::CreateFootPPR(
-                    mc, motis::ppr::CreateSearchOptions(
-                            mc, mc.CreateString("default"), 900))
-                    .Union())});
+      //    std::cout <<
+      //    res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
+      //              << "\n";
 
-    mc.create_and_finish(
-        MsgContent_IntermodalRoutingRequest,
-        intermodal::CreateIntermodalRoutingRequest(
-            mc, intermodal::IntermodalStart_IntermodalPretripStart, imd_start,
-            imd_start_modes,
-            intermodal::IntermodalDestination::
-                IntermodalDestination_InputPosition,
-            dest, dest_modes, motis::routing::SearchType_Default,
-            motis::SearchDir_Forward, mc.CreateString(""))
-            .Union(),
-        "/intermodal");
-    // Response Handle
-    auto const response = motis_call(make_msg(mc));
-    auto const res_value = response->val();
-
-    //    std::cout << res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
-    //              << "\n";
+      auto const intermodal_res =
+          motis_content(RoutingResponse, intermodal_msg);
+      for (auto c : *intermodal_res->connections()) {
+        auto const itinerary = createItineraryViaConnection(c);
+        itineraries_.push_back(itinerary);
+      }
+    }
 
     date_ = gql::response::Value{begin};
-
-    // itinerary init
-    auto const intermodal_res = motis_content(RoutingResponse, res_value);
-    for (auto const c : *intermodal_res->connections()) {
-      auto const itinerary = createItinerary(c);
-      itineraries_.push_back(itinerary);
-    }
   }
 
   gql::response::Value getDate() const noexcept {
@@ -1132,8 +1239,8 @@ struct Query {
       std::optional<int>&& /* bikeBoardCostArg */,
       std::unique_ptr<otp::InputBanned>&& /* bannedArg */,
       std::optional<int>&& /* transferPenaltyArg */,
-      std::optional<std::vector<
-          std::unique_ptr<otp::TransportMode>>>&& /* transportModesArg */,
+      std::optional<std::vector<std::unique_ptr<otp::TransportMode>>>&&
+          transportModesArg,
       std::unique_ptr<otp::InputModeWeight>&& /* modeWeightArg */,
       std::optional<bool>&& /* debugItineraryFilterArg */,
       std::optional<bool>&& /* allowKeepingRentedBicycleAtDestinationArg */,
@@ -1175,7 +1282,8 @@ struct Query {
       std::optional<std::string>&& /* startTransitTripIdArg */) const noexcept {
     return std::make_shared<otpo::Plan>(std::make_shared<plan>(
         std::move(dateArg), std::move(timeArg), std::move(fromPlaceArg),
-        std::move(toPlaceArg), std::move(numItinerariesArg)));
+        std::move(toPlaceArg), std::move(numItinerariesArg),
+        std::move(transportModesArg)));
   }
 
   std::shared_ptr<otpo::QueryType> getViewer() const noexcept {
@@ -1194,15 +1302,7 @@ void graphql::init(motis::module::registry& reg) {
       "/index/graphql",
       [](mm::msg_ptr const& msg) {
         auto const req = motis_content(HTTPRequest, msg);
-        //        std::string response;
-        //        if (req->method() == HTTPMethod::HTTPMethod_OPTIONS) {
-        //          response =
-        //              "HTTP/1.1 204 No Content\n"
-        //              "Allow: OPTIONS, GET, HEAD, POST\n"
-        //              "Cache-Control: max-age=604800\n"
-        //              "Date: Fri, 13 Oct 2023 13:06:00 GMT\n"
-        //              "Server: localhost";
-        //        } else {
+
         std::shared_ptr<gql::service::Request> service =
             std::make_shared<otp::Operations>(std::make_shared<Query>());
 
@@ -1224,16 +1324,21 @@ void graphql::init(motis::module::registry& reg) {
             queryItr->second.type() != gql::response::Type::String) {
           throw std::runtime_error("query missing");
         }
+        auto queryId = payload.find("id"sv);
+        if (queryId == payload.end() ||
+            queryId->second.type() != gql::response::Type::String) {
+          throw std::runtime_error("Id missing");
+        }
+        auto id_ = queryId->second.get<gql::response::StringType>();
 
         auto query = gql::peg::parseString(
             queryItr->second.get<gql::response::StringType>());
         auto const response = gql::response::toJSON(
             service
                 ->resolve({.query = query,
-                           .operationName = "GetPlan"sv,
+                           .operationName = id_,
                            .variables = std::move(variables)})
                 .get());
-        //        }
         mm::message_creator mc;
         mc.create_and_finish(
             MsgContent_HTTPResponse,

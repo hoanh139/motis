@@ -220,8 +220,9 @@ struct web_server::impl {
               : status::ok,
           req.version()};
       res.set(field::access_control_allow_origin, "*");
-      res.set(field::access_control_allow_headers,
-              "X-Requested-With, Content-Type, Accept, Authorization");
+      res.set(
+          field::access_control_allow_headers,
+          "X-Requested-With, Content-Type, Accept, Authorization, otptimeout");
       res.set(field::access_control_allow_methods, "GET, POST, OPTIONS");
       res.set(field::access_control_max_age, "3600");
       res.keep_alive(req.keep_alive());
@@ -275,8 +276,10 @@ struct web_server::impl {
       case verb::options: return cb(build_response(nullptr));
       case verb::post: {
         auto const content_type = req[field::content_type];
-        if (!content_type.empty() &&
-            !boost::beast::iequals(content_type, "application/json")) {
+        LOG(logging::info) << "target " << req.target();
+        if ((!content_type.empty() &&
+             !boost::beast::iequals(content_type, "application/json")) ||
+            req.target() == "/index/graphql") {
           return on_generic_req(req, res_cb);
         }
         req_msg = req.body();
