@@ -217,7 +217,7 @@ struct route {
     agency_ = agencyArg;
     short_name = shortNameArg;
     long_name = longNameArg;
-    mode_ = modeArg;
+    mode_ = std::move(modeArg);
     type_ = typeArg;
     url_ = urlArg;
     color_ = colorArg;
@@ -262,14 +262,14 @@ struct stop {
                 const std::string&& nameArg,
                 const std::optional<double>&& latArg,
                 const std::optional<double>&& lonArg,
-                const otp::Mode&& vehicleModeArg,
+                const std::optional<otp::Mode>&& vehicleModeArg,
                 const std::vector<std::shared_ptr<otpo::Alert>>&& alertsArg) {
     id_ = std::move(idArg);
     gtfs_id = gtfsIdArg;
     name_ = nameArg;
     lat_ = latArg;
     lon_ = lonArg;
-    vehicle_mode_ = vehicleModeArg;
+    vehicle_mode_ = std::move(vehicleModeArg);
     alerts_ = alertsArg;
   }
 
@@ -283,7 +283,9 @@ struct stop {
   std::optional<std::string> getCode() const noexcept { return code_; };
   std::optional<std::string> getDesc() const noexcept { return desc_; };
   std::optional<std::string> getZoneId() const noexcept { return zone_id; };
-  std::optional<otp::Mode> getVehicleMode() { return vehicle_mode_; }
+  std::optional<otp::Mode> getVehicleMode() const noexcept {
+    return vehicle_mode_;
+  }
   std::optional<std::string> getPlatformCode() const noexcept {
     return platform_code;
   };
@@ -583,7 +585,7 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 
     // gtfsId ?? FeedID
     const std::string gtfsId = feedId + ":" + stopArg.eva_no_;
-    const otp::Mode vehicleMode = getModeFromStation(transport);
+    auto const vehicleMode = getModeFromStation(transport);
 
     // can be pass down like for route and trip
     auto const alerts = std::vector<std::shared_ptr<otpo::Alert>>{};
@@ -804,9 +806,33 @@ std::string getFeedID(const std::string& idArg) {
   return str;
 }
 
+bool checkModeFromConnection(
+    const journey::transport& tran,
+    const std::vector<std::unique_ptr<otp::TransportMode>>& transportModes) {
+  auto const mode = getModeFromStation(tran);
+  for (auto transIter = transportModes.begin();
+       transIter != transportModes.end(); transIter++) {
+    if (mode == (*transIter)->mode) {
+      return true;
+    }
+  }
+  return false;
+}
+
 std::shared_ptr<otpo::Itinerary> createItineraryViaConnection(
-    const Connection* con) {
+    const Connection* con,
+    std::vector<std::unique_ptr<otp::TransportMode>>& transportModes) {
   auto const journey = motis::convert(con);
+
+  if (transportModes.size() == 6) {
+    auto tryy = 1;
+    tryy++;
+  }
+  for (auto const trans : journey.transports_) {
+    if (!checkModeFromConnection(trans, transportModes)) {
+      return nullptr;
+    }
+  }
 
   /////// create other infos
   auto const start_time_Itinerary =
@@ -1184,8 +1210,15 @@ struct plan {
       auto const intermodal_res =
           motis_content(RoutingResponse, intermodal_msg);
       for (auto c : *intermodal_res->connections()) {
-        auto const itinerary = createItineraryViaConnection(c);
-        itineraries_.push_back(itinerary);
+        if (itineraries_.size() > 2) {
+          break;
+        }
+        auto const itinerary =
+            createItineraryViaConnection(c, transportModesArg.value());
+
+        if (itinerary != nullptr) {
+          itineraries_.push_back(itinerary);
+        }
       }
     }
 

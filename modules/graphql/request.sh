@@ -1,11 +1,12 @@
 curl -X POST -d '{
-  "query": "query GetPlan(\n  $fromPlace: String!\n  $toPlace: String!\n  $intermediatePlaces: [InputCoordinates!]\n  $numItineraries: Int!\n  $modes: [TransportMode!]\n  $date: String!\n  $time: String!\n  $walkReluctance: Float\n  $walkBoardCost: Int\n  $minTransferTime: Int\n  $walkSpeed: Float\n  $wheelchair: Boolean\n  $ticketTypes: [String]\n  $arriveBy: Boolean\n  $transferPenalty: Int\n  $bikeSpeed: Float\n  $optimize: OptimizeType\n  $itineraryFiltering: Float\n  $unpreferred: InputUnpreferred\n  $allowedVehicleRentalNetworks: [String]\n  $locale: String\n  $modeWeight: InputModeWeight\n) {\n  plan(fromPlace: $fromPlace, toPlace: $toPlace, intermediatePlaces: $intermediatePlaces, numItineraries: $numItineraries, transportModes: $modes, date: $date, time: $time, walkReluctance: $walkReluctance, walkBoardCost: $walkBoardCost, minTransferTime: $minTransferTime, walkSpeed: $walkSpeed, wheelchair: $wheelchair, allowedTicketTypes: $ticketTypes, arriveBy: $arriveBy, transferPenalty: $transferPenalty, bikeSpeed: $bikeSpeed, optimize: $optimize, itineraryFiltering: $itineraryFiltering, unpreferred: $unpreferred, allowedVehicleRentalNetworks: $allowedVehicleRentalNetworks, locale: $locale, modeWeight: $modeWeight) {\n  date \n itineraries{\n startTime\n duration\n legs{\n from {\n      name\n      lat\n      lon\n      stop {\n        gtfsId\n        zoneId\n        platformCode\n   id\n      }\n      bikeRentalStation {\n        bikesAvailable\n        networks\n        id\n      }\n    }\n     route {\n          gtfsId\n          type\n          shortName\n          id\n        }\n  legGeometry {\n    points\n  }\n  agency {\n          gtfsId\n          fareUrl\n          name\n          id\n        }\n   }\n }\n }\n  }",
+  "id":	"GetPlan",
+  "query": "query GetPlan(\n  $fromPlace: String!\n  $toPlace: String!\n  $intermediatePlaces: [InputCoordinates!]\n  $numItineraries: Int!\n  $modes: [TransportMode!]\n  $date: String!\n  $time: String!\n  $walkReluctance: Float\n  $walkBoardCost: Int\n  $minTransferTime: Int\n  $walkSpeed: Float\n  $wheelchair: Boolean\n  $ticketTypes: [String]\n  $arriveBy: Boolean\n  $transferPenalty: Int\n  $bikeSpeed: Float\n  $optimize: OptimizeType\n  $itineraryFiltering: Float\n  $unpreferred: InputUnpreferred\n  $allowedVehicleRentalNetworks: [String]\n  $locale: String\n  $modeWeight: InputModeWeight\n) {\n  plan(fromPlace: $fromPlace, toPlace: $toPlace, intermediatePlaces: $intermediatePlaces, numItineraries: $numItineraries, transportModes: $modes, date: $date, time: $time, walkReluctance: $walkReluctance, walkBoardCost: $walkBoardCost, minTransferTime: $minTransferTime, walkSpeed: $walkSpeed, wheelchair: $wheelchair, allowedTicketTypes: $ticketTypes, arriveBy: $arriveBy, transferPenalty: $transferPenalty, bikeSpeed: $bikeSpeed, optimize: $optimize, itineraryFiltering: $itineraryFiltering, unpreferred: $unpreferred, allowedVehicleRentalNetworks: $allowedVehicleRentalNetworks, locale: $locale, modeWeight: $modeWeight) {\n  date \n itineraries{\n startTime\n duration\n legs{\n from {\n        stop {\n     vehicleMode\n      }\n       }\n     route {\n        id\n   mode\n        }\n  }\n }\n }\n  }",
   "operationName": "GetPlan",
   "variables": {
       "allowedVehicleRentalNetworks": [],
   		"arriveBy": false,
       "bikeSpeed": 5.55,
-      "date" : "2023-08-24",
+      "date" : "2023-10-30",
       "from": {
         "lat": 50.758075,
         "lon": 6.105464
@@ -59,4 +60,4 @@ curl -X POST -d '{
     	"wheelchair": false
     }
 }\n
-\n' http://localhost:8080/graphql
+\n' http://localhost:8080/index/graphql
