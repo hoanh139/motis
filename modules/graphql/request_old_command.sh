@@ -6,16 +6,16 @@ curl -X POST -d '{
     "allowedVehicleRentalNetworks": [],
 		"arriveBy": false,
     "bikeSpeed": 5.55,
-    "date" : "2023-10-30",
+    "date" : "2023-11-20",
     "from": {
-      "lat": 50.758075,
-      "lon": 6.105464
+      "lat": 50.77796,
+      "lon": 6.072172
     },
     "to": {
-      "lat": 50.782213999999996,
-      "lon": 6.07519
+      "lat": 50.772912999999996,
+      "lon": 6.0971079999999995
     },
-    "fromPlace": "Dachsteinstraße 6, 71083 Herrenberg::50.758075,6.105464",
+    "fromPlace": "Adalbertsteinweg, 52066 Aachen::50.780919999999995,6.073154",
     "intermediatePlaces": [],
     "itineraryFiltering": 1.5,
     "locale": "de",
@@ -50,8 +50,8 @@ curl -X POST -d '{
   	"numItineraries": 5,
   	"optimize": "TRIANGLE",
   	"ticketTypes": null,
-  	"time": "11:26:00",
-  	"toPlace": "Grasiger Weg, 71083 Herrenberg::50.782213999999996,6.07519",
+  	"time": "11:45:00",
+  	"toPlace": "Lothringerstraße, 52070 Aachen::50.772912999999996,6.0971079999999995",
   	"transferPenalty": 0,
   	"unpreferred": null,
   	"walkBoardCost": 600,

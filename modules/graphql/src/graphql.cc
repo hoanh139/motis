@@ -269,7 +269,7 @@ struct stop {
     name_ = nameArg;
     lat_ = latArg;
     lon_ = lonArg;
-    vehicle_mode_ = std::move(vehicleModeArg);
+    vehicle_mode_ = vehicleModeArg;
     alerts_ = alertsArg;
   }
 
@@ -283,7 +283,8 @@ struct stop {
   std::optional<std::string> getCode() const noexcept { return code_; };
   std::optional<std::string> getDesc() const noexcept { return desc_; };
   std::optional<std::string> getZoneId() const noexcept { return zone_id; };
-  std::optional<otp::Mode> getVehicleMode() const noexcept {
+  gql::service::AwaitableScalar<std::optional<otp::Mode>> getVehicleMode(
+      gql::service::FieldParams&& params) const noexcept {
     return vehicle_mode_;
   }
   std::optional<std::string> getPlatformCode() const noexcept {
@@ -585,7 +586,8 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 
     // gtfsId ?? FeedID
     const std::string gtfsId = feedId + ":" + stopArg.eva_no_;
-    auto const vehicleMode = getModeFromStation(transport);
+    //    auto const vehicleMode = getModeFromStation(transport);
+    auto const vehicleMode = otp::Mode::TRANSIT;
 
     // can be pass down like for route and trip
     auto const alerts = std::vector<std::shared_ptr<otpo::Alert>>{};
@@ -837,8 +839,9 @@ std::shared_ptr<otpo::Itinerary> createItineraryViaConnection(
   /////// create other infos
   auto const start_time_Itinerary =
       journey.stops_.begin()->departure_.timestamp_;
-  auto const end_time_Itinerary = (journey.stops_.end()--)->arrival_.timestamp_;
-  auto const duration_Itinerary = start_time_Itinerary - end_time_Itinerary;
+  auto const end_time_Itinerary =
+      (journey.stops_.rbegin())->arrival_.timestamp_;
+  auto const duration_Itinerary = end_time_Itinerary - start_time_Itinerary;
   auto walk_distance_Itinerary = 0;
   auto const fares = std::vector<std::shared_ptr<otpo::fare>>{};
 
@@ -1076,7 +1079,6 @@ int convertTime(const std::string& dateArg, const std::string& timeArg,
   }
 
   auto date_str = dateArg + " " + time_arg + " CET";
-  //  auto date_str = "2021-12-17 12:26:30 CET"; "2023-08-28 10:18:43 CET"
   auto const start_unix_time =
       motis::parse_unix_time(date_str, "%Y-%m-%d %H:%M:%S %Z");
 
@@ -1173,7 +1175,6 @@ struct plan {
 
     // Create Intermodal Routing Request
     mm::message_creator mc;
-
     auto const begin = convertTime(dateArg.value(), timeArg.value());
     auto const end = convertTime(dateArg.value(), timeArg.value(), true);
 
@@ -1210,9 +1211,6 @@ struct plan {
       auto const intermodal_res =
           motis_content(RoutingResponse, intermodal_msg);
       for (auto c : *intermodal_res->connections()) {
-        if (itineraries_.size() > 2) {
-          break;
-        }
         auto const itinerary =
             createItineraryViaConnection(c, transportModesArg.value());
 

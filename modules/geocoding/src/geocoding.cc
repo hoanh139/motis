@@ -367,12 +367,12 @@ void geocoding::init(motis::module::registry& reg) {
         std::cout << msg->to_string() << std::endl;
         std::cout << msg->get()->content_type() << std::endl;
 
-        auto const req = motis_content(HTTPRequest, msg);
+        //        auto const req = motis_content(HTTPRequest, msg);
 
-        std::cout << req->path()->str() << std::endl;
-        for (auto const& h : *req->headers()) {
-          std::cout << h->name() << ": " << h->value() << std::endl;
-        }
+        //        std::cout << req->path()->str() << std::endl;
+        //        for (auto const& h : *req->headers()) {
+        //          std::cout << h->name() << ": " << h->value() << std::endl;
+        //        }
         //        auto response = req->content()->str();
         //        auto station_msg =
         //        geocodingAddressViaPosition(req->content()->str()); auto const
@@ -410,8 +410,8 @@ void geocoding::init(motis::module::registry& reg) {
             "\t\t{\n"
             "\t\t\t\"geometry\": {\n"
             "\t\t\t\t\"coordinates\": [\n"
-            "\t\t\t\t\t6.105464,\n"
-            "\t\t\t\t\t50.758075\n"
+            "\t\t\t\t\t6.073154,\n"
+            "\t\t\t\t\t50.780919999999995\n"
             "\t\t\t\t],\n"
             "\t\t\t\t\"type\": \"Point\"\n"
             "\t\t\t},\n"
@@ -419,8 +419,8 @@ void geocoding::init(motis::module::registry& reg) {
             "\t\t\t\"properties\": {\n"
             "\t\t\t\t\"osm_id\": 25416882,\n"
             "\t\t\t\t\"extent\": [\n"
-            "\t\t\t\t\t6.105464,\n"
-            "\t\t\t\t\t50.758075\n"
+            "\t\t\t\t\t6.073154,\n"
+            "\t\t\t\t\t50.780919999999995\n"
             "\t\t\t\t],\n"
             "\t\t\t\t\"country\": \"Deutschland\",\n"
             "\t\t\t\t\"city\": \"Aachen\",\n"
@@ -431,11 +431,11 @@ void geocoding::init(motis::module::registry& reg) {
             "\t\t\t\t\"osm_key\": \"highway\",\n"
             "\t\t\t\t\"district\": \"Beverau\",\n"
             "\t\t\t\t\"osm_value\": \"track\",\n"
-            "\t\t\t\t\"name\": \"Petronellastraße\",\n"
+            "\t\t\t\t\"name\": \"Adalbertsteinweg\",\n"
             "\t\t\t\t\"region\": \"Nordrhein-Westfalen\",\n"
             "\t\t\t\t\"postalcode\": \"52066\",\n"
             "\t\t\t\t\"locality\": \"Aachen\",\n"
-            "\t\t\t\t\"label\": \"Petronellastraße 6, 52066 Aachen\",\n"
+            "\t\t\t\t\"label\": \"Adalbertsteinweg, 52066 Aachen\",\n"
             "\t\t\t\t\"layer\": \"venue\",\n"
             "\t\t\t\t\"confidence\": 1,\n"
             "\t\t\t\t\"source\": \"openstreetmap\"\n"
@@ -449,8 +449,8 @@ void geocoding::init(motis::module::registry& reg) {
             "\t\t{\n"
             "\t\t\t\"geometry\": {\n"
             "\t\t\t\t\"coordinates\": [\n"
-            "\t\t\t\t\t6.07519,\n"
-            "\t\t\t\t\t50.782213999999996\n"
+            "\t\t\t\t\t6.0971079999999995,\n"
+            "\t\t\t\t\t50.772912999999996\n"
             "\t\t\t\t],\n"
             "\t\t\t\t\"type\": \"Point\"\n"
             "\t\t\t},\n"
@@ -458,8 +458,8 @@ void geocoding::init(motis::module::registry& reg) {
             "\t\t\t\"properties\": {\n"
             "\t\t\t\t\"osm_id\": 25416882,\n"
             "\t\t\t\t\"extent\": [\n"
-            "\t\t\t\t\t6.07519,\n"
-            "\t\t\t\t\t50.782213999999996\n"
+            "\t\t\t\t\t6.0971079999999995,\n"
+            "\t\t\t\t\t50.772912999999996\n"
             "\t\t\t\t],\n"
             "\t\t\t\t\"country\": \"Deutschland\",\n"
             "\t\t\t\t\"city\": \"Aachen\",\n"
@@ -470,11 +470,151 @@ void geocoding::init(motis::module::registry& reg) {
             "\t\t\t\t\"osm_key\": \"highway\",\n"
             "\t\t\t\t\"district\": \"Mitte Aachen\",\n"
             "\t\t\t\t\"osm_value\": \"track\",\n"
-            "\t\t\t\t\"name\": \"Brüggemannstraße\",\n"
+            "\t\t\t\t\"name\": \"Augustastraße\",\n"
             "\t\t\t\t\"region\": \"Nordrhein-Westfalen\",\n"
-            "\t\t\t\t\"postalcode\": \"52072\",\n"
+            "\t\t\t\t\"postalcode\": \"52070\",\n"
             "\t\t\t\t\"locality\": \"Aachen\",\n"
-            "\t\t\t\t\"label\": \"Brüggemannstraße 4, 52072 Aachen\",\n"
+            "\t\t\t\t\"label\": \"Augustastraße 9, 52070 Aachen\",\n"
+            "\t\t\t\t\"layer\": \"venue\",\n"
+            "\t\t\t\t\"confidence\": 1,\n"
+            "\t\t\t\t\"source\": \"openstreetmap\"\n"
+            "\t\t\t}\n"
+            "\t\t}\n"
+            "\t]\n"
+            "}";
+        std::string MsgSend = from;
+        if (changeAtr) {
+          MsgSend = to;
+          changeAtr = !changeAtr;
+        } else {
+          MsgSend = from;
+          changeAtr = !changeAtr;
+        }
+        mm::message_creator mc;
+        mc.create_and_finish(
+            MsgContent_HTTPResponse,
+            CreateHTTPResponse(
+                mc, HTTPStatus_OK,
+                mc.CreateVector(std::vector<fbb::Offset<HTTPHeader>>{}),
+                mc.CreateString(MsgSend))
+                .Union());
+        return make_msg(mc);
+      },
+      {});
+  reg.register_op(
+      "/geocoding",
+      [](mm::msg_ptr const& msg) {
+        std::cout << msg->to_string() << std::endl;
+        std::cout << msg->get()->content_type() << std::endl;
+
+        //        auto const req = motis_content(HTTPRequest, msg);
+
+        //        std::cout << req->path()->str() << std::endl;
+        //        for (auto const& h : *req->headers()) {
+        //          std::cout << h->name() << ": " << h->value() << std::endl;
+        //        }
+        //        auto response = req->content()->str();
+        //        auto station_msg =
+        //        geocodingAddressViaPosition(req->content()->str()); auto const
+        //        station_res =
+        //            motis_content(StationGuesserResponse, station_msg);
+
+        //        std::cout << req->path()->str() << std::endl;
+        //        auto response = req->content()->str();
+        //        auto station_msg =
+        //        geocodingAddressViaPosition(req->content()->str()); auto const
+        //        station_res =
+        //            motis_content(StationGuesserResponse, station_msg);
+
+        //        std::vector<features<properties_geocoding_digi>> features_vec;
+        //        properties_geocoding_digi pr("id", "gid", "layer");
+        //        geometry_geocoding ge(1.0, 1.0, "type");
+        //        features f1(ge, "saooo", pr);
+        //
+        //        features_vec.push_back(f1);
+        //
+        //        nh::json jsonArray = nh::json::array();
+        //
+        //        for (auto feature : features_vec) {
+        //          nh::json featureJson;
+        //          feature.to_json(featureJson, feature);
+        //          jsonArray.push_back(featureJson);
+        //        }
+        //
+        //        nh::json jsonObject;
+        //        jsonObject["features"] = jsonArray;
+
+        auto from =
+            "{\n"
+            "\t\"features\": [\n"
+            "\t\t{\n"
+            "\t\t\t\"geometry\": {\n"
+            "\t\t\t\t\"coordinates\": [\n"
+            "\t\t\t\t\t6.073154,\n"
+            "\t\t\t\t\t50.780919999999995\n"
+            "\t\t\t\t],\n"
+            "\t\t\t\t\"type\": \"Point\"\n"
+            "\t\t\t},\n"
+            "\t\t\t\"type\": \"Feature\",\n"
+            "\t\t\t\"properties\": {\n"
+            "\t\t\t\t\"osm_id\": 25416882,\n"
+            "\t\t\t\t\"extent\": [\n"
+            "\t\t\t\t\t6.073154,\n"
+            "\t\t\t\t\t50.780919999999995\n"
+            "\t\t\t\t],\n"
+            "\t\t\t\t\"country\": \"Deutschland\",\n"
+            "\t\t\t\t\"city\": \"Aachen\",\n"
+            "\t\t\t\t\"countrycode\": \"DE\",\n"
+            "\t\t\t\t\"county\": \"Landkreis Aachen\",\n"
+            "\t\t\t\t\"type\": \"street\",\n"
+            "\t\t\t\t\"osm_type\": \"W\",\n"
+            "\t\t\t\t\"osm_key\": \"highway\",\n"
+            "\t\t\t\t\"district\": \"Beverau\",\n"
+            "\t\t\t\t\"osm_value\": \"track\",\n"
+            "\t\t\t\t\"name\": \"Adalbertsteinweg\",\n"
+            "\t\t\t\t\"region\": \"Nordrhein-Westfalen\",\n"
+            "\t\t\t\t\"postalcode\": \"52066\",\n"
+            "\t\t\t\t\"locality\": \"Aachen\",\n"
+            "\t\t\t\t\"label\": \"Adalbertsteinweg, 52066 Aachen\",\n"
+            "\t\t\t\t\"layer\": \"venue\",\n"
+            "\t\t\t\t\"confidence\": 1,\n"
+            "\t\t\t\t\"source\": \"openstreetmap\"\n"
+            "\t\t\t}\n"
+            "\t\t}\n"
+            "\t]\n"
+            "}";
+        auto to =
+            "{\n"
+            "\t\"features\": [\n"
+            "\t\t{\n"
+            "\t\t\t\"geometry\": {\n"
+            "\t\t\t\t\"coordinates\": [\n"
+            "\t\t\t\t\t6.0971079999999995,\n"
+            "\t\t\t\t\t50.772912999999996\n"
+            "\t\t\t\t],\n"
+            "\t\t\t\t\"type\": \"Point\"\n"
+            "\t\t\t},\n"
+            "\t\t\t\"type\": \"Feature\",\n"
+            "\t\t\t\"properties\": {\n"
+            "\t\t\t\t\"osm_id\": 25416882,\n"
+            "\t\t\t\t\"extent\": [\n"
+            "\t\t\t\t\t6.0971079999999995,\n"
+            "\t\t\t\t\t50.772912999999996\n"
+            "\t\t\t\t],\n"
+            "\t\t\t\t\"country\": \"Deutschland\",\n"
+            "\t\t\t\t\"city\": \"Aachen\",\n"
+            "\t\t\t\t\"countrycode\": \"DE\",\n"
+            "\t\t\t\t\"county\": \"Landkreis Aachen\",\n"
+            "\t\t\t\t\"type\": \"street\",\n"
+            "\t\t\t\t\"osm_type\": \"W\",\n"
+            "\t\t\t\t\"osm_key\": \"highway\",\n"
+            "\t\t\t\t\"district\": \"Mitte Aachen\",\n"
+            "\t\t\t\t\"osm_value\": \"track\",\n"
+            "\t\t\t\t\"name\": \"Lothringerstraße\",\n"
+            "\t\t\t\t\"region\": \"Nordrhein-Westfalen\",\n"
+            "\t\t\t\t\"postalcode\": \"52070\",\n"
+            "\t\t\t\t\"locality\": \"Aachen\",\n"
+            "\t\t\t\t\"label\": \"Lothringerstraße, 52070 Aachen\",\n"
             "\t\t\t\t\"layer\": \"venue\",\n"
             "\t\t\t\t\"confidence\": 1,\n"
             "\t\t\t\t\"source\": \"openstreetmap\"\n"

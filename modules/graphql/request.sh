@@ -6,7 +6,7 @@ curl -X POST -d '{
       "allowedVehicleRentalNetworks": [],
   		"arriveBy": false,
       "bikeSpeed": 5.55,
-      "date" : "2023-10-30",
+      "date" : "2023-11-20",
       "from": {
         "lat": 50.758075,
         "lon": 6.105464
