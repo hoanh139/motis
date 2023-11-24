@@ -502,7 +502,7 @@ void geocoding::init(motis::module::registry& reg) {
       },
       {});
   reg.register_op(
-      "/geocoding",
+      "/geocoding/search",
       [](mm::msg_ptr const& msg) {
         std::cout << msg->to_string() << std::endl;
         std::cout << msg->get()->content_type() << std::endl;

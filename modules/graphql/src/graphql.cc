@@ -239,7 +239,8 @@ struct route {
   std::optional<std::string> getDesc() const noexcept { return desc_; };
   std::optional<std::string> getUrl() const noexcept { return url_; };
   std::optional<std::string> getColor() const noexcept { return color_; };
-  std::optional<std::vector<std::shared_ptr<otpo::Alert>>> getAlerts()
+  std::optional<std::vector<std::shared_ptr<otpo::Alert>>> getAlerts(
+      std::optional<std::vector<std::optional<otp::RouteAlertType>>>&& typesArg)
       const noexcept {
     return alerts_;
   };
@@ -290,7 +291,8 @@ struct stop {
   std::optional<std::string> getPlatformCode() const noexcept {
     return platform_code;
   };
-  std::optional<std::vector<std::shared_ptr<otpo::Alert>>> getAlerts()
+  std::optional<std::vector<std::shared_ptr<otpo::Alert>>> getAlerts(
+      std::optional<std::vector<std::optional<otp::StopAlertType>>>&& typesArg)
       const noexcept {
     return alerts_;
   };
@@ -586,8 +588,8 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
 
     // gtfsId ?? FeedID
     const std::string gtfsId = feedId + ":" + stopArg.eva_no_;
-    //    auto const vehicleMode = getModeFromStation(transport);
-    auto const vehicleMode = otp::Mode::TRANSIT;
+    auto const vehicleMode = getModeFromStation(transport);
+    //    auto const vehicleMode = otp::Mode::TRANSIT;
 
     // can be pass down like for route and trip
     auto const alerts = std::vector<std::shared_ptr<otpo::Alert>>{};
