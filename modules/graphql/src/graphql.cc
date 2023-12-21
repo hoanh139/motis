@@ -565,6 +565,10 @@ otp::Mode getModeFromStation(const journey::transport& tran) {
   return vehicleMode;
 }
 
+/*
+ * Create object of struct trip using an object of type journey:transport and journey:stop.
+ * @param [feedId] id of the area in which this traffic service is operating.
+ */
 std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
     const journey::stop& stopArg, const journey::transport& transport,
     const std::string& feedId) {
@@ -586,12 +590,9 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
     auto stopID =
         gql::response::IdType{gql::response::StringType{stopArg.eva_no_}};
 
-    // gtfsId ?? FeedID
     const std::string gtfsId = feedId + ":" + stopArg.eva_no_;
     auto const vehicleMode = getModeFromStation(transport);
-    //    auto const vehicleMode = otp::Mode::TRANSIT;
 
-    // can be pass down like for route and trip
     auto const alerts = std::vector<std::shared_ptr<otpo::Alert>>{};
 
     stop_place = std::make_shared<otpo::Stop>(std::make_shared<stop>(
@@ -604,6 +605,12 @@ std::shared_ptr<otpo::Place> CreatePlaceWithTransport(
                               arrivalTime, std::move(stop_place)));
 }
 
+/*
+ * Create object of struct trip using an object of type journey:transport and journey:trip.
+ * @param [agency] agency that provided this traffic service.
+ * @param [alerts] alerts about this trip.
+ * @param [feedId] id of the area in which this traffic service is operating.
+ */
 std::shared_ptr<otpo::Trip> CreateTripWithTransport(
     const std::vector<std::shared_ptr<otpo::Alert>>& alertsArg,
     const std::shared_ptr<otpo::Route>& routeArg,
@@ -651,7 +658,7 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
     auto const lon = stop_iter.lng_;
     // gtfsId
     const std::string gtfsId = feedId + ":" + stop_iter.eva_no_;
-    otp::Mode mode;  // might have problem hier
+    otp::Mode mode;
     auto alerts = alertsArg;
     stops_pattern.push_back(std::make_shared<otpo::Stop>(std::make_shared<stop>(
         std::move(stopID), std::move(gtfsId), std::move(stopName), lat, lon,
@@ -689,8 +696,8 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
   }
   /////// End Stoptime
 
-  ////// the parameter is the date given but the stoptime give back doesn't
-  /// match anything
+  ////// the parameter is the date understandable but the type stoptime
+  /// that was returned doesn't make no sense at all
   auto stoptimes_for_date_trip = std::vector<std::shared_ptr<otpo::Stoptime>>{};
 
   return std::make_shared<otpo::Trip>(std::make_shared<trip>(
@@ -699,6 +706,12 @@ std::shared_ptr<otpo::Trip> CreateTripWithTransport(
       std::move(stoptimes_trip), std::move(stoptimes_for_date_trip)));
 }
 
+/*
+ * Create object of struct route using an object of type journey:transport.
+ * @param [agency] agency that provided this traffic service.
+ * @param [alerts] alerts about this route.
+ * @param [feedId] id of the area in which this traffic service is operating.
+ */
 std::shared_ptr<otpo::Route> CreateRouteWithTransport(
     const std::shared_ptr<otpo::Agency>& agency,
     const std::vector<std::shared_ptr<otpo::Alert>>& alerts,
@@ -753,6 +766,10 @@ std::shared_ptr<otpo::Route> CreateRouteWithTransport(
   ;
 }
 
+/*
+ * Caculates the distance using coordinates of begin and end point
+ * with the desired means of transportation.
+ */
 const std::shared_ptr<motis::module::message> caculateDistanceViaOSRM(
     double start_lat, double start_lon, double dest_lat, double dest_lon,
     std::string const profile) {
@@ -810,6 +827,10 @@ std::string getFeedID(const std::string& idArg) {
   return str;
 }
 
+/*
+ * Checks whether the transport mode returned in the motis response
+ * is within the modes expected by the user.
+ */
 bool checkModeFromConnection(
     const journey::transport& tran,
     const std::vector<std::unique_ptr<otp::TransportMode>>& transportModes) {
@@ -823,6 +844,9 @@ bool checkModeFromConnection(
   return false;
 }
 
+/*
+ * Create object of struct itinerary based on object of type connection.
+ */
 std::shared_ptr<otpo::Itinerary> createItineraryViaConnection(
     const Connection* con,
     std::vector<std::unique_ptr<otp::TransportMode>>& transportModes) {
@@ -838,7 +862,6 @@ std::shared_ptr<otpo::Itinerary> createItineraryViaConnection(
     }
   }
 
-  /////// create other infos
   auto const start_time_Itinerary =
       journey.stops_.begin()->departure_.timestamp_;
   auto const end_time_Itinerary =
@@ -972,23 +995,10 @@ std::shared_ptr<otpo::Itinerary> createItineraryViaConnection(
       walk_distance_Itinerary, std::move(legs), std::move(fares)));
 }
 
-std::tuple<std::string, double, double> convertStringToCoordinate(
-    const std::string& arg) {
-  std::stringstream ss(arg);
-  std::string str;
-
-  getline(ss, str, ':');
-  auto const address_ = str;
-  getline(ss, str, ':');
-
-  getline(ss, str, ',');
-  auto const lat_ = std::stod(str);
-  getline(ss, str, ',');
-  auto const lon_ = std::stod(str);
-
-  return std::make_tuple(address_, lat_, lon_);
-}
-
+/*
+ * Create object of struct itinerary based on object of type route.
+ * This itinerary object is intended for pedestrians.
+ */
 std::shared_ptr<otpo::Itinerary> createItineraryViaRoute(const ppr::Route* r,
                                                          const int begin,
                                                          const otp::Mode mode) {
@@ -1063,6 +1073,23 @@ std::shared_ptr<otpo::Itinerary> createItineraryViaRoute(const ppr::Route* r,
   return std::make_shared<otpo::Itinerary>(std::make_shared<itinerary>(
       start_time_Itinerary, end_time_Itinerary, duration_Itinerary,
       walk_distance_Itinerary, std::move(legs), std::move(fares)));
+}
+
+std::tuple<std::string, double, double> convertStringToCoordinate(
+    const std::string& arg) {
+  std::stringstream ss(arg);
+  std::string str;
+
+  getline(ss, str, ':');
+  auto const address_ = str;
+  getline(ss, str, ':');
+
+  getline(ss, str, ',');
+  auto const lat_ = std::stod(str);
+  getline(ss, str, ',');
+  auto const lon_ = std::stod(str);
+
+  return std::make_tuple(address_, lat_, lon_);
 }
 
 int convertTime(const std::string& dateArg, const std::string& timeArg,
@@ -1145,8 +1172,6 @@ std::shared_ptr<mm::message> createPPRRouting(
     const std::tuple<std::string, double, double>& toPos) {
   const Position start_pos{std::get<1>(fromPos), std::get<2>(fromPos)};
 
-  //  const Position start_pos{50.758075, 6.105464};
-
   mm::message_creator mc;
 
   mc.create_and_finish(
@@ -1185,6 +1210,7 @@ struct plan {
 
     if ((transportModesArg.value().size() == 1) &&
         (*transportModesArg.value().begin())->mode == otp::Mode::WALK) {
+      // Caculate walking route.
       auto ppr_msg = createPPRRouting(fromPos, toPos);
       auto const ppr_res = motis_content(FootRoutingResponse, ppr_msg);
       for (auto r : *ppr_res->routes()->begin()->routes()) {
@@ -1194,6 +1220,7 @@ struct plan {
     } else if ((transportModesArg.value().size() == 1) &&
                (*transportModesArg.value().begin())->mode ==
                    otp::Mode::BICYCLE) {
+      // Calculate cycling route.
       auto ppr_msg = createPPRRouting(fromPos, toPos);
       auto const ppr_res = motis_content(FootRoutingResponse, ppr_msg);
       auto re = *ppr_res->routes()->begin()->routes();
@@ -1209,7 +1236,6 @@ struct plan {
       //    std::cout <<
       //    res_value->to_json(mm::json_format::DEFAULT_FLATBUFFERS)
       //              << "\n";
-
       auto const intermodal_res =
           motis_content(RoutingResponse, intermodal_msg);
       for (auto c : *intermodal_res->connections()) {
