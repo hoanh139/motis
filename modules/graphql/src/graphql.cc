@@ -282,7 +282,10 @@ struct stop {
   std::optional<double> getLat() const noexcept { return lat_; };
   std::optional<double> getLon() const noexcept { return lon_; };
   std::optional<std::string> getCode() const noexcept { return code_; };
-  std::optional<std::string> getDesc() const noexcept { return desc_; };
+  std::optional<std::string> getDesc(
+      std::optional<std::string>&& languageArg) const noexcept {
+    return desc_;
+  };
   std::optional<std::string> getZoneId() const noexcept { return zone_id; };
   gql::service::AwaitableScalar<std::optional<otp::Mode>> getVehicleMode(
       gql::service::FieldParams&& params) const noexcept {
@@ -296,6 +299,10 @@ struct stop {
       const noexcept {
     return alerts_;
   };
+  std::optional<std::vector<std::shared_ptr<otpo::Stop>>> getStops()
+      const noexcept {
+    return stops_;
+  }
 
   gql::response::IdType id_;
   std::string gtfs_id;
@@ -313,6 +320,9 @@ struct stop {
    * for stops that are part of a station */
   std::optional<std::string> platform_code;
   std::optional<std::vector<std::shared_ptr<otpo::Alert>>> alerts_;
+  /*Returns all stops that are children of this station (Only applicable for
+   * stations)*/
+  std::optional<std::vector<std::shared_ptr<otpo::Stop>>> stops_;
 };
 
 struct place {
@@ -522,6 +532,10 @@ struct itinerary {
       const noexcept {
     return fares_;
   };
+  std::optional<bool> getArrivedAtDestinationWithRentedBicycle()
+      const noexcept {
+    return arrived_at_dest_with_rented_bicycle;
+  }
 
   std::optional<gql::response::Value> start_time;
   std::optional<gql::response::Value> end_time;
